@@ -19,9 +19,6 @@ def update(infile, db_name, coll_name):
   count = 0
   for l in locations:
     try:
-      if count < 123:
-        count += 1
-        continue
       results = g.geocode(l)
       count += 1
       print count
