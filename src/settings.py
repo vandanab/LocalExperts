@@ -2,7 +2,7 @@
 Created on Oct 7, 2012
 
 @author: vandana
-Contains the settings used by LocalTweets project
+Contains the settings used by LocalTweets project 
 '''
 import os
 
