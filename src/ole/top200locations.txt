@@ -1,0 +1,501 @@
+madison
+delaware
+cincinnati
+boise city
+kosovo
+escondido
+hampton
+uzbekistan
+senegal
+french guiana
+guinea-bissau
+hungary
+nevada
+tajikistan
+maine
+des moines
+mumbai
+paris
+wyoming
+fullerton
+minnesota
+burundi
+rwanda
+british virgin islands
+tampa
+maryland
+henderson
+ghana
+people’s republic of china
+saint helena
+cuba
+michigan
+guatemala
+wallis & futuna islands
+haiti
+kazakhstan
+syracuse
+north las vegas
+mauritania
+norfolk
+bridgeport
+denmark
+philippines
+cote d’ivoire
+hawaii
+moldova
+chattanooga
+croatia
+dallas
+switzerland
+ohio
+bulgaria
+jamaica
+albania
+samoa
+trinidad & tobago
+prague
+hialeah
+cary
+santa rosa
+greece
+santa ana
+brazil
+afghanistan
+jersey city
+morocco
+fontana
+guinea
+panama
+knoxville
+tucson
+richmond
+milwaukee
+virgin islands
+somalia
+toledo
+el paso
+nauru
+warren
+colorado springs
+brunei
+korea
+iran
+united arab emirates
+nashville
+augusta-richmond county
+albuquerque
+bangkok
+phoenix
+china
+armenia
+faeroe islands
+belize
+virginia beach
+ukraine
+bakersfield
+pembroke pines
+guadeloupe
+spokane
+thousand oaks
+libya
+mayotte
+oman
+saint vincent
+alaska
+macedonia
+mauritius
+las vegas
+dominican republic
+turks & caicos islands
+baltimore
+pakistan
+alexandria
+stockton
+myanmar
+beijing
+cook islands
+lithuania
+oxnard
+austria
+lagos
+denver
+kiribati
+san francisco
+new zealand
+lima
+washington, d.c
+comoros
+naperville
+turkey
+saudi arabia
+iraq
+macau
+mexico
+buenos aires
+france
+peru
+laos
+san bernardino
+indiana
+corpus christi
+louisiana
+malawi
+mckinney
+chula vista
+saint martin
+us virgin islands
+israel
+algeria
+west virginia
+huntsville
+little rock
+tokelau islands
+irving
+oregon
+irvine
+togo
+berlin
+holy see (vatican city state)
+minneapolis
+chile
+martinique
+atlanta
+grand rapids
+riverside
+spain
+rockford
+georgia
+montgomery
+saint kitts & nevis
+tokyo
+hollywood
+grand prairie
+kentucky
+monrovia
+nebraska
+new hampshire
+lincoln
+mali
+south carolina
+grenada
+oklahoma city
+yemen
+hong kong
+st. paul
+mesquite
+anaheim
+bahrain
+overland park
+portugal
+uruguay
+rancho cucamonga
+salinas
+india
+new caledonia
+lesotho
+belarus
+elk grove
+kenya
+seattle
+tacoma
+italy
+tulsa
+oceanside
+lubbock
+sao tomé & principe
+nashville-davidson
+ethiopia
+johannesburg
+bermuda
+vancouver
+manila
+topeka
+aurora
+lakewood
+zambia
+idaho
+mexico city
+indianapolis
+columbia
+elizabeth
+falkland islands
+singapore
+solomon islands
+tuvalu
+costa rica
+scottsdale
+long beach
+slovenia
+moreno valley
+plano
+mesa
+dominica
+british indian ocean
+eritrea
+vermont
+el salvador
+poland
+indonesia
+cape coral
+salt lake city
+corona
+san jose
+yonkers
+rome
+brownsville
+sunnyvale
+monaco
+alabama
+houston
+tallahassee
+fresno
+savannah
+cayman islands
+united states of america
+azerbaijan
+rhode island
+akron
+djibouti
+réunion
+london
+cambodia
+japan
+taiwan
+mcallen
+barbados
+new guinea
+newport news
+bhutan
+west valley city
+cyprus czech republic
+clarksville
+mongolia
+jacksonville
+andorra
+tunisia
+new orleans
+aruba
+sydney
+puerto rico
+orange
+argentina
+norway
+sierra leone
+texas
+eugene
+st. louis
+australia
+iowa
+lexington-fayette
+garden grove
+utah
+virginia
+french polynesia
+amarillo
+zimbabwe
+carrollton
+belgium
+joliet
+democratic people’s republic of korea
+burkina faso
+liberia
+kyrgyzstan
+netherlands
+bosnia
+miami
+baton rouge
+orlando
+cedar rapids
+detroit
+district of columbia
+namibia
+springfield
+montréal
+sri lanka
+saint barthelemy
+hayward
+nairobi
+montserrat
+angola
+madrid
+serbia
+birmingham
+malaysia
+mozambique
+cleveland
+portland
+nicaragua
+canada
+qatar
+oakland
+jackson
+turkmenistan
+equatorial guinea
+sudan
+kuwait
+oklahoma
+nepal
+central african republic
+luxembourg
+newark
+providence
+latvia
+arkansas
+sacramento
+bougainville
+venezuela
+egypt
+columbus
+arizona
+wisconsin
+tempe
+the bahamas
+mississippi
+kansas city
+winston-salem
+glendale
+ontario
+california
+new mexico
+shreveport
+thailand
+palmdale
+paterson
+tennessee
+anchorage
+finland
+florida
+fort worth
+papua
+antigua and barbuda
+raleigh
+port st. lucie
+syria
+cape verde islands
+austin
+greensboro
+federated states of micronesia
+romania
+seychelles
+colorado
+guam
+washington
+democratic republic of congo
+greenland
+colombia
+honduras
+niger
+jerusalem
+fiji
+madagascar
+south dakota
+bangladesh
+waco
+new jersey
+arlington
+philadelphia
+north carolina
+new york
+slovakia
+gibraltar
+swaziland
+cairo
+palestine
+republic of korea
+nigeria
+bolivia
+ecuador
+laredo
+sioux falls
+suriname
+bombay
+pittsburgh
+lebanon
+peoria
+montenegro
+rio de janeiro
+sterling heights
+louisville/jefferson county
+jordan
+st. petersburg
+honolulu
+huntington beach
+republic of congo
+memphis
+gilbert
+toronto
+anguilla
+fort collins
+american samoa
+modesto
+chandler
+pennsylvania
+sweden
+gambia, the
+gabon
+fort wayne
+guyana
+torrance
+united kingdom of gb & ni
+russia
+antilles
+charlotte
+north dakota
+estonia
+durham
+boston
+san marino
+worcester
+reno
+salem
+chesapeake
+uganda
+paraguay
+northern marianas islands
+ireland
+botswana
+fremont
+coral springs
+rochester
+caracas
+istanbul
+south africa
+san diego
+malta
+illinois
+pasadena
+vanuatu
+pomona
+saint pierre & miquelon
+cameroon
+san antonio
+benin
+lancaster
+bellevue
+los angeles
+garland
+fort lauderdale
+iceland
+saint lucia
+kansas
+timor leste
+montana
+germany
+massachusetts
+santa clarita
+tonga
+maldives
+omaha
+mobile
+tanzania
+chicago
+wichita
+connecticut
+liechtenstein
+vietnam
+dayton
+missouri
+hartford
+fayetteville
+buffalo
