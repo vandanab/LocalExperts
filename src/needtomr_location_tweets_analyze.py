@@ -336,8 +336,8 @@ def main():
 	#second level filter and clustering
 	#LocationTweetsAnalysis.get_tweettexts(f_local_tweets_filtered, f_tweet_texts)
 	#LocationTweetsAnalysis.find_category_clusters_km(f_tweet_texts, local_clusters_folder, 50)
-	#LocationTweetsAnalysis.get_tweettexts_en_from_processed_file(f_tweet_texts+'.full.0', f_tweet_texts)
-	LocationTweetsAnalysis.find_category_clusters_lda(localfs_output_base_dir%'local_tweets', 'tweets_text', 'tweets_text.full', local_clusters_folder+'v-final/', k=50)
+	LocationTweetsAnalysis.get_tweettexts_en_from_processed_file(f_tweet_texts+'.full.0', f_tweet_texts)
+	#LocationTweetsAnalysis.find_category_clusters_lda(localfs_output_base_dir%'local_tweets', 'tweets_text', 'tweets_text.full', local_clusters_folder+'v-final/', k=50)
 
 	#where can analysis
 	#LocationTweetsAnalysis.get_wherecan_tweets(f_local_tweets_filtered, 'wherecan.txt')
