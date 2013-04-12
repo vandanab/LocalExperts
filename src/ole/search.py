@@ -25,6 +25,7 @@ import cjson
 import lucene
 import re
 import operator
+import uuid
 
 
 if __name__ == "__main__":
@@ -230,7 +231,31 @@ def textsearch(query=None):
         experts.append({'u': i['user'], 'd':details, 'p':i['profile'], 't': tweets})
       else:
         experts.append({'u': i['user'], 'd':details})
-    return cjson.encode(experts)
+    
+    response = {'sid': str(uuid.uuid1()), 'es': experts}
+    if user_study:
+      #write session to db
+      session = {'q': text_query, 'l': location, '_id': response['sid'], 'ur': {}}
+      db = conn['ole_evaluation']
+      db['user_response'].insert(session)
+		#return cjson.encode(experts)
+    return cjson.encode(response)
+
+@app.route('/submiteval/<evaluation>')
+def submiteval(evaluation=None):
+  evaluation = cjson.decode(evaluation)
+  sid = evaluation['sid']
+  conn = Connection("wheezy.cs.tamu.edu", 27017)
+  db = conn['ole_evaluation']
+  ur = {}
+  for i in evaluation:
+    if 'rel' in i:
+      result_no = re.sub(r'rel', '', i)
+      ur[result_no] = evaluation[i]
+  db['user_response'].update({'_id': sid}, {'$set': {'ur': ur}})
+  #save response in db as per a session and calculate MAP estimate for the session
+  #ur = user response. For each query result: relevant = 1, not relevant = 2, not sure = 3
+  return "success"
 
 @app.route('/hello')
 def hello():
