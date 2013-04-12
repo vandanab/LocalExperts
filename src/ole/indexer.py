@@ -8,6 +8,7 @@ The indexer for the Ole search engine.
 from lucene import SimpleFSDirectory, File, Document, Field, \
     StandardAnalyzer, IndexWriter, Version
 from settings import location_index_store_dir, usermap_index_store_dir, dir_user_location_map
+from pymongo import Connection, ASCENDING
 import cjson
 import lucene
 import os
@@ -65,9 +66,6 @@ class Indexer(object):
                           Field.Index.NOT_ANALYZED))
             doc.add(Field("ats", cjson.encode(tweet['ats']), Field.Store.YES,
                           Field.Index.NOT_ANALYZED))
-            """
-            doc.add(Field('w', tweet['w'], Field.Store.NO, Field.Index.ANALYZED))
-            """
             
             doc.add(Field("w", " ".join(tweet['w']), Field.Store.NO,
                     Field.Index.ANALYZED))
@@ -107,6 +105,7 @@ class LocationIndexer(Indexer):
             num_tweets = {}
             for i in data['locations']:
               num_tweets[i['name']] = len(i['tweets'])
+            #tweets indexed as part of the UserMapIndexer
             doc.add(Field("loc", " ".join(locations),
                           Field.Store.YES,
                           Field.Index.ANALYZED))
@@ -129,6 +128,8 @@ class LocationIndexer(Indexer):
     self.writer.commit()
   
 class UserMapIndexer(Indexer):
+  CONN = Connection("wheezy.cs.tamu.edu", 27017)
+  DB = CONN['local_expert_tweets']
   def __init__(self, root, writer, directoryToWalk):
     super(UserMapIndexer, self).__init__(root, writer, directoryToWalk)
 
@@ -149,6 +150,16 @@ class UserMapIndexer(Indexer):
             tw_texts = []
             for i in data['locations']:
               tweets[i['name']] = [x['tx'] for x in i['tweets']]
+              """
+              Instead of storing into lucene we need to write the tweets to a db.
+              We do that here. Thats our supplementary index.
+              """
+              try:
+                UserMapIndexer.DB['user_location_tweets'].insert({'sn': data['user'].strip('@'),
+                                                                 'l': i['name'],
+                                                                 't': tweets[i['name']]})
+              except Exception, e:
+                print "Failed while adding to DB:", len(tweets[i['name']])
               tw_texts.extend(tweets[i['name']])
               num_tweets[i['name']] = len(i['tweets'])
             doc.add(Field("loc", " ".join(locations),
@@ -157,8 +168,6 @@ class UserMapIndexer(Indexer):
             doc.add(Field("text", " ".join(tw_texts), Field.Store.NO,
                         Field.Index.ANALYZED))
             """
-            Instead of storing into lucene we need to write the tweets to a db.
-            We do that here. Thats our supplementary index.
             doc.add(Field("tweets", cjson.encode(tweets), Field.Store.YES,
                         Field.Index.NO))
             """
@@ -179,6 +188,7 @@ class UserMapIndexer(Indexer):
     # optimize for fast search and commit the changes
     self.writer.optimize()
     self.writer.commit()
+    UserMapIndexer.DB['user_location_tweets'].ensure_index([('sn', 1), ('l', 1)])
 
 """
   #Alternate implementation above which might solve the LSTS problem.
@@ -300,6 +310,7 @@ if __name__ == '__main__':
   env=lucene.initVM()
   # For now I just use the StandardAnalyzer, but you can change this
   analyzer = StandardAnalyzer(Version.LUCENE_CURRENT)
+  
   """
   #location indexer
   LOCATION_INDEX_STORE_DIR = location_index_store_dir
@@ -313,6 +324,7 @@ if __name__ == '__main__':
   location_indexer.run()
   writer.close()
   """
+  
   #user_location_map indexer
   USERMAP_INDEX_STORE_DIR = usermap_index_store_dir
   usermap_index_dir = createIndexDir(USERMAP_INDEX_STORE_DIR)

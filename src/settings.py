@@ -39,8 +39,8 @@ f_local_tweets = spock_local_base_dir % 'local_tweets' + 'tweets_'
 #f_local_tweets = localfs_output_base_dir % 'local_tweets' + 'tweets_'
 
 #f_mentions = chevron_output_base_dir % 'local_tweets' + 'user_location_map'
-#f_mentions = localfs_output_base_dir % 'local_tweets' + 'user_location_map'
-f_mentions = spock_local_base_dir % 'local_tweets' + 'user_location_map'
+f_mentions = localfs_output_base_dir % 'local_tweets' + 'user_location_map'
+#f_mentions = spock_local_base_dir % 'local_tweets' + 'user_location_map'
 #f_mentions = spock_local_base_dir % 'local_tweets' + 'user_location_map_langinfo'
 
 #oufile for filtered tweets to aid in clustering to understand the topics

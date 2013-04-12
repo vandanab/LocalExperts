@@ -17,16 +17,15 @@ class TweetsGeoAnalysis(ModifiedMRJob):
 	"""
 	mapper for geo distribution (just counts)
 	"""
-	"""
 	def mapper(self, key, line):
 		data = cjson.decode(line)
 		locations = data['top_locs']
 		for l in locations:
 			yield l, data['tx']
-	"""
 	
 	"""
-	mapper for geo distribution - geo information
+	mapper for geo distribution - geo information - geo coverage
+	"""
 	"""
 	def mapper(self, key, line):
 		data = cjson.decode(line)
@@ -34,11 +33,10 @@ class TweetsGeoAnalysis(ModifiedMRJob):
 		for l in locations:
 			if 'geo' in data:
 				yield l, data['geo']
-	
+	"""
 	
 	"""
 	reducer for geo distribution (just counts)
-	"""
 	"""
 	def reducer(self, key, values):
 		geo_mention_tweets = {}
@@ -48,10 +46,10 @@ class TweetsGeoAnalysis(ModifiedMRJob):
 			count += 1
 		geo_mention_tweets['n_tweets'] = count
 		yield key, geo_mention_tweets
-	"""
 	
 	"""
-	reducer for geo distribution - geo information
+	reducer for geo distribution - geo information - geo coverage
+	"""
 	"""
 	def reducer(self, key, values):
 		location_geo_following = {}
@@ -61,6 +59,7 @@ class TweetsGeoAnalysis(ModifiedMRJob):
 			geo_tags_from.add((i[0], i[1]))
 		location_geo_following['mentions_from'] = list(geo_tags_from)
 		yield key, location_geo_following
+	"""
 
 class TweetTexts(ModifiedMRJob):
 	DEFAULT_INPUT_PROTOCOL = 'raw_value'

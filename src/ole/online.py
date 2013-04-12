@@ -10,8 +10,31 @@ import httplib2
 import urllib
 from datetime import datetime
 import time
+from pymongo import Connection
+
+
+class UserProfiles:
+  CONN = Connection('wheezy.cs.tamu.edu', 27017)
+  DB = CONN['local_experts']
+  @staticmethod
+  def get_user_profile_info(users):
+    user_profiles = {}
+    users_in_db = []
+    it = UserProfiles.DB['user_profiles'].find({'_id': {'$in': users}})
+    for i in it:
+      user_profiles[i['_id']] = i
+      users_in_db.append(i['_id'])
+    def func(item): return item not in users_in_db
+    users_to_be_crawled_from_twitter = filter(func, users)
+    if len(users_to_be_crawled_from_twitter):
+      profiles_from_twitter = OnlineUser.get_user_profiles(users_to_be_crawled_from_twitter)
+      user_profiles = dict(user_profiles.items() + profiles_from_twitter.items())
+    return user_profiles
+
 
 class OnlineUser:
+  CONN = Connection('wheezy.cs.tamu.edu', 27017)
+  DB = CONN['local_experts']
   USER_SEARCH_URL = 'http://search.twitter.com/search.json?rpp=2&' + \
       'q={0}&page=1&include_entities=true&result_type=mixed'
   
@@ -36,6 +59,36 @@ class OnlineUser:
         content = cjson.decode(content)
         for profile in content:
           profiles[profile['screen_name']] = OnlineUser.get_short_profile(profile)
+          profile['_id'] = profile['screen_name']
+          OnlineUser.DB['user_profiles'].insert(profile)
+      else:
+        print 'REQUEST FAILED: ', url
+        print response
+        if response['status'] == 400: #ratelimit exceeded
+          break
+      p = (i+1)*100
+    return profiles
+  
+  @staticmethod
+  def get_user_profiles(users):
+    http = httplib2.Http()
+    users = list(set(users))
+    l = len(users)/100
+    r = len(users)%100
+    if r > 0:
+      l += 1
+    p = 0
+    profiles = {}
+    for i in range(l):
+      q = ','.join([x.strip('@') for x in users[p:(i+1)*100]])
+      url = OnlineUser.USERS_SEARCH_URL.format(urllib.quote_plus(q))
+      response, content = http.request(url, 'GET')
+      if response['status'] == '200':
+        content = cjson.decode(content)
+        for profile in content:
+          profiles[profile['screen_name']] = OnlineUser.get_short_profile(profile)
+          profile['_id'] = profile['screen_name']
+          OnlineUser.DB['user_profiles'].insert(profile)
       else:
         print 'REQUEST FAILED: ', url
         print response

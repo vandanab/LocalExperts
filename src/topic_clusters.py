@@ -11,6 +11,7 @@ import cjson
 import operator
 import os
 import pickle
+import numpy as np
 
 #Visualize LDA generated topics
 class Topics:
@@ -45,46 +46,71 @@ class Topics:
     pickle.dump({"cgm": clusters_geo_matrix, "gcm": geo_clusters_matrix}, f)
     f.close()
   
-  def topics_distribution(self):
+  def topics_distribution(self, clusters_to_represent=[]):
     f = open(self.geo_topic_matrices, "r")
     matrix = pickle.load(f)
     f.close()
     cgm = matrix["cgm"]
     for i in range(self.num_topics):
+      if len(clusters_to_represent) > 0 and i not in clusters_to_represent:
+        continue
       geo_distrib = cgm[i]
-      #geo_distrib = sorted(geo_distrib, key=operator.itemgetter(1))
       X = geo_distrib.keys()
       Y = geo_distrib.values()
-      plt.plot(Y, color="green", linestyle="solid")
+      #plt.plot(Y, color="#3DA63F", linestyle="solid")
+      #plt.plot(Y, color="#3C7E80", linestyle="solid")
+      plt.plot(Y, color="#FF6136", linestyle="solid")
+      #plt.fill_between(range(len(X)), Y, facecolor="#43F746", interpolate=True)
+      #plt.fill_between(range(len(X)), Y, facecolor="#76E1E3", interpolate=True)
+      plt.fill_between(range(len(X)), Y, facecolor="#FFFF36", interpolate=True)
+      labelled_points = 0
       for j in range(len(X)):
-        if Y[j] > 2000:
-          plt.annotate(X[j], xy=(j, 0),
-                       xytext=(j+1, Y[j]+5),
-                       arrowprops=dict(width=0.2, facecolor='black'))
+        if Y[j] >= 1000:
+          ry, r1, r2, r3, r4, r5, r6, r7 = 20, -20, -30, -40, -50, -60, -70, 30
+          ry = r1 if j%8 == 1 else (r2 if j%8 == 2 else (r3 if j%8 == 3 else (r4 if j%8 == 4 else (r5 if j%8 == 5 else (r6 if j%8 == 6 else (r7 if j%8 == 7 else ry))))))
+          plt.annotate(X[j], xy=(j, 0), xycoords="data",
+                       xytext=(0, ry), textcoords="offset points",
+											 size=9,
+											 #bbox=dict(boxstyle="round", fc=(1.0, 0.7, 0.7), ec=(1., .5, .5)),
+											 bbox=dict(boxstyle="round", fc=(1., 0.7, 1.), ec=(0.5, 0., 0.5)),
+                       #arrowprops=dict(arrowstyle="wedge,tail_width=0.4", fc=(1.0, 0.7, 0.7), ec=(1., .5, .5), patchA=None, relpos=(0.2, 0.8), connectionstyle="arc3,rad=-0.1"))
+                       arrowprops=dict(arrowstyle="wedge,tail_width=0.4", fc=(1., .7, 1.), ec=(.5, 0., .5), patchA=None, relpos=(0.2, 0.8), connectionstyle="arc3,rad=-0.1"))
+          labelled_points += 1
       plt.ylabel("size of cluster")
       plt.xlabel("locations")
       plt.title(self.cluster_labels[i])
       plt.show()
   
-  def geo_cluster_pie(self, output_folder, clusters_to_represent=None):
+  def geo_cluster_pie(self, output_folder, clusters_to_represent=[], locations_to_represent=[]):
     f = open(self.geo_topic_matrices, "r")
     matrix = pickle.load(f)
     f.close()
     gcm = matrix["gcm"]
-    pie_locations = ['houston', 'london',
-                     'austin', 'sunnyvale', 'mumbai']
     pie_files = {}
     for i in gcm:
-      if i not in pie_locations:
+      if len(locations_to_represent) > 0 and i not in locations_to_represent:
         continue
       clusters_distrib = gcm[i]
-      if clusters_to_represent:
+      top5, top5_clabels = [], []
+      if len(clusters_to_represent) > 0:
         indexes = range(len(clusters_distrib))
         clusters_distrib = [clusters_distrib[item] \
                             for item in indexes if item in clusters_to_represent]
         clabels = [self.cluster_labels[item] \
                   for item in indexes if item in clusters_to_represent]
-      plt.pie(clusters_distrib, explode=None, labels=clabels,
+        clusters_distrib_tuples = [(x, clusters_distrib[x]) for x in range(len(clusters_distrib))]
+        sorted_clusters = sorted(clusters_distrib_tuples, key=operator.itemgetter(1), reverse=True)
+        top5 = sorted_clusters[:5]
+        top5_clabels = [clabels[x[0]] for x in top5]
+      if len(top5) > 0:
+        plt.pie([x[1] for x in top5], explode=None, labels=top5_clabels,
+              colors=("#8a56e2","#cf56e2","#e256ae","#e25668",
+							        "#e28956"),
+              autopct=None, pctdistance=0.6, shadow=False,
+              labeldistance=1.1)
+        plt.legend(top5_clabels)
+      else:
+        plt.pie(clusters_distrib, explode=None, labels=clabels,
               colors=("#8a56e2","#cf56e2","#e256ae","#e25668",
                       "#e28956","#e2cf56","#aee256","#68e256",
                       "#56e289","#56e2cf","#56aee2","#5668e2",
@@ -93,7 +119,7 @@ class Topics:
                       ),
               autopct=None, pctdistance=0.6, shadow=False,
               labeldistance=1.1)
-      #plt.legend(clabels)
+        plt.legend(clabels)
       plt.title(i)
       plt.show()
     pass
@@ -113,11 +139,13 @@ def main():
   f_model = local_tweets_input_folder + 'last-model/'
   cluster_labels = [x.strip() for x in open(f_clabels, "r").readlines()]
   ts = Topics(f_model, f_clusters, 30, cluster_labels)
-  ts.generate_geo_cluster_matrix("misc_geolocationnames_datacleaning/top200locations.txt")
-  #ts.topics_distribution()
+  #ts.generate_geo_cluster_matrix("misc_geolocationnames_datacleaning/top200locations.txt")
   clusters_to_represent = [1, 2, 4, 5, 7, 12, 13, 14, 15, 16,
                            17, 19, 20, 21, 23, 24, 28, 29]
-  #ts.geo_cluster_pie(f_clusters+'images/', clusters_to_represent)
+  locations_to_represent = ['houston', 'london',
+                     'austin', 'sunnyvale', 'mumbai']
+  ts.topics_distribution(clusters_to_represent)
+  #ts.geo_cluster_pie(f_clusters+'images/', clusters_to_represent, locations_to_represent)
 
 if __name__ == "__main__":
   main()

@@ -30,7 +30,7 @@ class TweetsAnalysisMRJobRunner(object):
              input_files,
              mrJobClassParams = {'job_id': 'as'},
              # uncomment when running on local
-             args = [],
+             #args = [],
              jobconf={'mapred.reduce.tasks':300, 'mapred.task.timeout': 86400000}
     )
   
@@ -53,11 +53,11 @@ class TweetsAnalysisMRJobRunner(object):
   @staticmethod
   def run():
     input_files = []
-    #input_files.append(f_local_tweets)
-    #TweetsAnalysisMRJobRunner.geo_analysis(input_files)
+    input_files.append(f_local_tweets)
+    TweetsAnalysisMRJobRunner.geo_analysis(input_files)
     
-    input_files.append(f_local_tweets_filtered)
-    TweetsAnalysisMRJobRunner.tweet_texts(input_files)
+    #input_files.append(f_local_tweets_filtered)
+    #TweetsAnalysisMRJobRunner.tweet_texts(input_files)
     
     #TODO: get input files from cluster folder
     #TweetsAnalysisMRJobRunner.topic_clusters_geo_division(input_files)
