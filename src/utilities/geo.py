@@ -5,8 +5,11 @@ geo utilities
 '''
 import cjson
 import httplib2
+import sys
 import urllib
 from math import radians, cos, sin, atan2, sqrt
+from pygeocoder import Geocoder, GeocoderError
+from pymongo import Connection
 
 def decode(location):
   http = httplib2.Http()
@@ -57,6 +60,46 @@ def haversine_dist(lat1, lng1, lat2, lng2):
     c = 2 * atan2(sqrt(a), sqrt(1-a))
     km = R * c
     return km
+
+"""
+Get coordinates using geocoder
+"""
+def get_coordinates_gc(location):
+  try:
+    results = Geocoder.geocode(location)
+    if results:
+      return results[0].coordinates
+  except GeocoderError as e:
+    print 'Geo Error: ', str(e)
+  return None
+
+class LocationInfo:
+  def __init__(self):
+    self.db_conn = Connection('localhost', 27017)
+    self.location_db = self.db_conn['local_experts']
+    self.collection = 'location_info'
+    self.in_db_locations = {}
+    it = self.location_db[self.collection].find()
+    for i in it:
+      self.in_db_locations[i["_id"]] = i
+  
+  def get(self, location, try_geocoder=False):
+    location = location.lower()
+    for i in self.in_db_locations:
+      if i in location:
+        return (self.in_db_locations[i]['lat'], self.in_db_locations[i]['lng'])
+    if try_geocoder:
+      results = get_coordinates_gc(location)
+      if results:
+        lat, lng = results[0], results[1]
+        self.add(location, {'name': location, 'lat': lat, 'lng': lng})
+        return (lat, lng)
+    return (None, None)
+  
+  def add(self, name, location_info):
+    location_info['_id'] = name
+    self.location_db[self.collection].insert(location_info)
+    self.in_db_locations[name] = location_info
 
 if __name__ == '__main__':
   print decode('buffalo')

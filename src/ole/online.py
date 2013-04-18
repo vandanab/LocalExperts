@@ -11,11 +11,16 @@ import urllib
 from datetime import datetime
 import time
 from pymongo import Connection
+import sys
+sys.path.append('/home/vandana/workspace/LocalExperts/src/')
+from utilities import geo
+#from src.utilities import geo
 
 
 class UserProfiles:
   CONN = Connection('wheezy.cs.tamu.edu', 27017)
   DB = CONN['local_experts']
+  LI = geo.LocationInfo()
   @staticmethod
   def get_user_profile_info(users):
     user_profiles = {}
@@ -132,6 +137,11 @@ class OnlineUser:
         short_profile['status']['coordinates'] = profile['status']['coordinates']
       if 'geo' in profile['status'] :
         short_profile['status']['geo'] = profile['status']['geo']
+    
+    if short_profile['location']:
+      coords = UserProfiles.LI.get(short_profile['location'], True)
+      if coords[0] is not None and coords[1] is not None:
+        short_profile['location_coords'] = coords 
     return short_profile
       
     
