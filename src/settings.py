@@ -49,11 +49,12 @@ f_tweet_texts = spock_local_base_dir % 'local_tweets' + 'tweets_text'
 #f_local_tweets_filtered = spock_local_base_dir % 'local_tweets' + 'tweets_for_analysis'
 #f_local_tweets_filtered = localfs_output_base_dir % 'local_tweets' + 'tweets_for_analysis'
 #f_local_tweets_filtered = localfs_output_base_dir % 'local_tweets' + '02-13-2013/tweets_for_analysis'
-f_local_tweets_filtered = hdfs_input_folder1 % 'local_tweets' + 'tweets_for_analysis_modified'
+#f_local_tweets_filtered = hdfs_input_folder1 % 'local_tweets' + 'tweets_for_analysis_modified'
+f_local_tweets_filtered = hdfs_input_folder1 % 'local_tweets' + 'tweets_for_analysis'
 
 
-f_geo_distrib = localfs_output_base_dir % 'local_tweets' + 'geo_distrib.txt'
-#f_geo_distrib = spock_local_base_dir % 'local_tweets' + 'geo_distrib.txt'
+#f_geo_distrib = localfs_output_base_dir % 'local_tweets' + 'geo_distrib.txt'
+f_geo_distrib = spock_local_base_dir % 'local_tweets' + 'geo_distrib.txt'
 
 local_clusters_folder = os.path.expanduser('~/workspace/LocalExperts/data/clusters/')
 

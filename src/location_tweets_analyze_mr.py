@@ -53,7 +53,8 @@ class TweetsAnalysisMRJobRunner(object):
   @staticmethod
   def run():
     input_files = []
-    input_files.append(f_local_tweets)
+    #input_files.append(f_local_tweets)
+    input_files.append(f_local_tweets_filtered)
     TweetsAnalysisMRJobRunner.geo_analysis(input_files)
     
     #input_files.append(f_local_tweets_filtered)

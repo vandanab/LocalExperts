@@ -133,5 +133,5 @@ class TopicClusters(ModifiedMRJob):
 """
 
 if __name__ == '__main__':
-	#TweetsGeoAnalysis.run()
-	TweetTexts.run()
+	TweetsGeoAnalysis.run()
+	#TweetTexts.run()
