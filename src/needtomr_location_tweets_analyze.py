@@ -15,7 +15,6 @@ from settings import f_local_tweets, f_local_tweets_filtered, f_tweet_texts, loc
 from utilities import geo
 from nltk.corpus import stopwords
 from math import log
-import matplotlib.pyplot as plt
 
 class LocationTweetsAnalysis:
 	"""
@@ -121,72 +120,6 @@ class LocationTweetsAnalysis:
 		f.write(cjson.encode(geo_dict))
 		f.close()
 	
-	@staticmethod
-	def plot_geo_distrib(geo_distrib_file):
-		f = open(geo_distrib_file, 'r')
-		geo_dict = cjson.decode(f.readline())
-		f.close()
-		f1 = open('top20.txt', 'w')
-		f2 = open('last20.txt', 'w')
-		geo_dict_r = []
-		for i in geo_dict:
-			geo_dict_r.append((i, geo_dict[i]['n_tweets']))
-		geo_dict_sorted = sorted(geo_dict_r, key=operator.itemgetter(1), reverse=True)
-		l = len(geo_dict_sorted)
-		x = [0] * l
-		y = [0] * l
-		lim = range(l)
-		for i in lim:
-			if i >= 0:
-				#x[i] = log(i)
-				x[i] = i
-				(p,q) = geo_dict_sorted[i]
-				y[i] = log(q)
-				#y[i] = q
-				if i < 21:
-					f1.write(p+'\t'+str(q)+'\n')
-				if i > (l - 20):
-					f2.write(p+'\t'+str(q)+'\n')
-		f1.close()
-		f2.close()
-		plt.plot(x, y, color='green', linestyle='solid')
-		plt.xlabel('location (by rank)')
-		plt.ylabel('no. of tweets')
-		plt.show()
-	
-	@staticmethod
-	def plot_geo_distrib1(geo_distrib_file):
-		f = open(geo_distrib_file, 'r')
-		f1 = open('top40.txt', 'w')
-		f2 = open('last40.txt', 'w')
-		lines = f.readlines();
-		f.close()
-		geo_dict_r = []
-		for i in lines:
-			i = cjson.decode(i)
-			geo_dict_r.append((i['name'], i['n_tweets']))
-		geo_dict_sorted = sorted(geo_dict_r, key=operator.itemgetter(1), reverse=True)
-		l = len(geo_dict_sorted)
-		x = [0] * l
-		y = [0] * l
-		lim = range(l)
-		for i in lim:
-			x[i] = i
-			(p,q) = geo_dict_sorted[i]
-			#y[i] = log(q)
-			y[i] = q
-			if i < 41:
-				f1.write(p+'\t'+str(q)+'\n')
-			if i > (l - 40):
-				f2.write(p+'\t'+str(q)+'\n')
-		f.close()
-		f1.close()
-		f2.close()
-		plt.plot(x, y, color='green', linestyle='solid')
-		plt.xlabel('location (by rank)')
-		plt.ylabel('no. of tweets')
-		plt.show()
-	
 	"""
 	@staticmethod
 	def find_category_clusters_km(infile, outfolder, k=10):
@@ -237,10 +170,6 @@ class LocationTweetsAnalysis:
 			f2.close()
 		f1.close()
 		f.close()
-	
-	@staticmethod
-	def train_for_classification(traindata):
-		pass
 
 """
 strip the non-english and other useless characters from the tweets
@@ -353,10 +282,6 @@ def main():
 	#LocationTweetsAnalysis.get_tweettexts('wherecan.txt', 'temp/wherecan_processtext.txt', ['where can'])
 	#LocationTweetsAnalysis.find_category_clusters_km('temp/wherecan_processtext.txt', local_clusters_folder+'k_wherecan/', 50)
 	#LocationTweetsAnalysis.find_category_clusters_lda('temp/', 'wherecan_processtext.txt', 'wherecan_processtext.txt.full', local_clusters_folder+'wherecan/', k=50)
-	
-	#trying classification
-	#LocationTweetsAnalysis.train_for_classification()
-	#LocationTweetsAnalysis.classify_tweets()
 	
 	#geo analysis
 	#LocationTweetsAnalysis.get_geo_distrib(f_local_tweets_filtered, 'geo_distrib.txt')

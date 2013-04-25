@@ -71,6 +71,8 @@ def get_coordinates_gc(location):
       return results[0].coordinates
   except GeocoderError as e:
     print 'Geo Error: ', str(e)
+  except:
+    print sys.exc_info()[0]
   return None
 
 class LocationInfo:

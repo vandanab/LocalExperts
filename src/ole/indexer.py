@@ -7,7 +7,8 @@ The indexer for the Ole search engine.
 
 from lucene import SimpleFSDirectory, File, Document, Field, \
     StandardAnalyzer, IndexWriter, Version
-from settings import location_index_store_dir, usermap_index_store_dir, dir_user_location_map
+from settings import location_index_store_dir, usermap_index_store_dir, \
+                      dir_user_location_map, user_index_store_dir
 from pymongo import Connection, ASCENDING
 import cjson
 import lucene
@@ -128,8 +129,8 @@ class LocationIndexer(Indexer):
     self.writer.commit()
   
 class UserMapIndexer(Indexer):
-  CONN = Connection("wheezy.cs.tamu.edu", 27017)
-  DB = CONN['local_expert_tweets']
+  #CONN = Connection("wheezy.cs.tamu.edu", 27017)
+  #DB = CONN['local_expert_tweets']
   def __init__(self, root, writer, directoryToWalk):
     super(UserMapIndexer, self).__init__(root, writer, directoryToWalk)
 
@@ -153,13 +154,14 @@ class UserMapIndexer(Indexer):
               """
               Instead of storing into lucene we need to write the tweets to a db.
               We do that here. Thats our supplementary index.
-              """
+              
               try:
                 UserMapIndexer.DB['user_location_tweets'].insert({'sn': data['user'].strip('@'),
                                                                  'l': i['name'],
                                                                  't': tweets[i['name']]})
               except Exception, e:
                 print "Failed while adding to DB:", len(tweets[i['name']])
+              """
               tw_texts.extend(tweets[i['name']])
               num_tweets[i['name']] = len(i['tweets'])
             doc.add(Field("loc", " ".join(locations),
@@ -191,7 +193,12 @@ class UserMapIndexer(Indexer):
     UserMapIndexer.DB['user_location_tweets'].ensure_index([('sn', 1), ('l', 1)])
 
 """
-  #Alternate implementation above which might solve the LSTS problem.
+Index for available users
+"""
+class UserIndexer(Indexer):
+  def __init__(self, root, writer, directoryToWalk):
+    super(UserIndexer, self).__init__(root, writer, directoryToWalk)
+
   def indexDocs(self):
     for root, _, filenames in os.walk(self.directory):
       for filename in filenames:
@@ -203,28 +210,15 @@ class UserMapIndexer(Indexer):
           for line in f:
             data = cjson.decode(line)
             doc = Document()
-            
-            #maybe indexed as part of the tweet texts
-            doc.add(Field("locs", " ".join([n['name'] for n in data['locations']]),
-                          Field.Store.NO,
-                          Field.Index.ANALYZED))
-            
-            tweets = []
-            c = 0
-            for l in data['locations']:
-              c += len(l['tweets'])
-              tw_texts = " ".join([x['tx'] for x in l['tweets']])
-              tweets.append(tw_texts)
-            doc.add(Field("tweets", " ".join(tweets), Field.Store.NO,
-                    Field.Index.ANALYZED))
-            
-            doc.add(Field("num_tweets", str(c), Field.Store.YES,
-                    Field.Index.NO))
-            doc.add(Field("num_locs", str(len(data['locations'])),
-                    Field.Store.YES,
-                    Field.Index.NO))
-            doc.add(Field("user", data['user'], Field.Store.YES,
-                    Field.Index.NO))
+            locations = [x['name'] for x in data['locations']]
+            doc.add(Field("loc", " ".join(locations),
+                        Field.Store.NO,
+                        Field.Index.ANALYZED))
+            doc.add(Field("user", data['user'].strip('@'), Field.Store.YES,
+                        Field.Index.NOT_ANALYZED))
+            doc.add(Field("locs", cjson.encode(locations),
+                        Field.Store.YES,
+                        Field.Index.NO))
             self.writer.addDocument(doc)
           f.close()
         except Exception, e:
@@ -237,11 +231,57 @@ class UserMapIndexer(Indexer):
     # optimize for fast search and commit the changes
     self.writer.optimize()
     self.writer.commit()
+
 """
+Instead of storing into lucene we need to write the tweets to a db.
+We do that here. Thats our supplementary index.
+"""
+def tweets_to_db(user_location_map_dir):
+  conn = Connection("wheezy.cs.tamu.edu", 27017)
+  db = conn['local_expert_tweets']
+  for root, _, filenames in os.walk(user_location_map_dir):
+    for filename in filenames:
+      try:
+        path = os.path.join(root, filename)
+        f = open(path, 'r')
+        # every line in the file is a user_location_map document to be indexed
+        for line in f:
+          data = cjson.decode(line)
+          for i in data['locations']:
+            tweets = [x['tx'] for x in i['tweets']]
+            try:
+              db['user_location_tweets'].insert({'sn': data['user'].strip('@'),
+                                                 'l': i['name'],
+                                                 't': tweets})
+            except Exception, e:
+              print "Failed while adding to DB:", len(tweets)
+      except Exception, e:
+        print "Failed in tweets_to_db:", e
+
+def users_to_db(user_location_map_dir):
+  conn = Connection("wheezy.cs.tamu.edu", 27017)
+  db = conn['local_experts']
+  for root, _, filenames in os.walk(user_location_map_dir):
+    for filename in filenames:
+      try:
+        path = os.path.join(root, filename)
+        f = open(path, 'r')
+        # every line in the file is a user_location_map document to be indexed
+        for line in f:
+          data = cjson.decode(line)
+          locations = [x['name'] for x in data['locations']]
+          try:
+            db['users'].insert({'_id': data['user'].strip('@'),
+                                               'l': locations})
+          except Exception, e:
+            print "Failed while adding user to DB:", data['user']
+      except Exception, e:
+        print "Failed in users_to_db:", e
 
 # before we close we always want to close the writer to prevent
 # corruption to the index
 def quit_gracefully(*args):
+  global writer
   writer.close()
   print "Cleaning up and terminating"
   exit(0)
@@ -325,6 +365,7 @@ if __name__ == '__main__':
   writer.close()
   """
   
+  """
   #user_location_map indexer
   USERMAP_INDEX_STORE_DIR = usermap_index_store_dir
   usermap_index_dir = createIndexDir(USERMAP_INDEX_STORE_DIR)
@@ -336,6 +377,21 @@ if __name__ == '__main__':
   usermap_indexer = UserMapIndexer(USERMAP_INDEX_STORE_DIR, writer, directoryToWalk)
   usermap_indexer.run()
   writer.close()
+  """
+  
+  #user indexer
+  USER_INDEX_STORE_DIR = user_index_store_dir
+  user_index_dir = createIndexDir(USER_INDEX_STORE_DIR)
+  # we will need a writer
+  writer = IndexWriter(user_index_dir, analyzer, True,
+                       IndexWriter.MaxFieldLength.LIMITED)
+  writer.setMaxFieldLength(1048576)
+  # and start the indexer
+  user_indexer = UserIndexer(USER_INDEX_STORE_DIR, writer, directoryToWalk)
+  user_indexer.run()
+  writer.close()
+  
+  #users_to_db(directoryToWalk)
   
   print "Cleaning up and terminating"
   exit(0)

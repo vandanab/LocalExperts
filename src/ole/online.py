@@ -29,13 +29,31 @@ class UserProfiles:
     for i in it:
       user_profiles[i['_id']] = i
       users_in_db.append(i['_id'])
+    #print "Users in DB: ", users_in_db
     def func(item): return item not in users_in_db
     users_to_be_crawled_from_twitter = filter(func, users)
     if len(users_to_be_crawled_from_twitter):
       profiles_from_twitter = OnlineUser.get_user_profiles(users_to_be_crawled_from_twitter)
       user_profiles = dict(user_profiles.items() + profiles_from_twitter.items())
+      #if len(user_profiles.keys()) != len(users):
+        #print "Did not find: ", list(set(users) - set(user_profiles.keys()))
     return user_profiles
-
+  
+  @staticmethod
+  def get_user_profile_(user):
+    it = UserProfiles.DB['user_profiles'].find({'_id': user})
+    for i in it:
+      return ({i['_id']: i})
+    return None
+	
+  @staticmethod
+  def get_profile_image_url(user):
+    http = httplib2.Http()
+    url = 'https://api.twitter.com/1/users/profile_image?screen_name=' + user + \
+           '&size=bigger'
+    UserProfiles.DB['user_profiles'].update({'_id': user},
+                    {'$set': {'profile_image_url': url}})
+    return url
 
 class OnlineUser:
   CONN = Connection('wheezy.cs.tamu.edu', 27017)
@@ -66,7 +84,7 @@ class OnlineUser:
           profiles[profile['screen_name']] = OnlineUser.get_short_profile(profile)
           profile['_id'] = profile['screen_name']
           OnlineUser.DB['user_profiles'].insert(profile)
-      else:
+      else:	
         print 'REQUEST FAILED: ', url
         print response
         if response['status'] == 400: #ratelimit exceeded
@@ -119,7 +137,8 @@ class OnlineUser:
                      'id': profile['id'],
                      'time_zone': profile['time_zone'],
                      'created_at': profile['created_at'],
-                     'lang': profile['lang']
+                     'lang': profile['lang'],
+										 'profile_image_url': profile['profile_image_url']
                      }
     if 'status' in profile:
       short_profile['status'] = {'text':profile['status']['text'],
@@ -183,3 +202,6 @@ class Expert:
     else:
       self.ishash = False
     self.v = value
+
+if __name__ == "__main__":
+	x = UserProfiles.get_profile_image_url("ShinerBeer")

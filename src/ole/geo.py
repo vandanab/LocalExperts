@@ -30,17 +30,16 @@ def coverage(location=None):
     for l in f:
       data = cjson.decode(l)
       if data['name'] == location:
-				mentions = []
-				for i in data['mentions_from']:
-					point = {}
-					point['lat'] = i[0]
-					point['lng'] = i[1]
-					point['count'] = 1
-					mentions.append(point)
-				response['mentions_from'] = mentions
-				break
+        mentions = []
+        for i in data['mentions_from']:
+          point = {}
+          point['lat'] = i[0]
+          point['lng'] = i[1]
+          point['count'] = 1
+          mentions.append(point)
+        response['mentions_from'] = mentions
+        break
     f.close()
-  print response
   return response
     
 if __name__ == "__main__":
