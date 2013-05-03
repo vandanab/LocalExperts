@@ -105,18 +105,21 @@ class OnlineUser:
     for i in range(l):
       q = ','.join([x.strip('@') for x in users[p:(i+1)*100]])
       url = OnlineUser.USERS_SEARCH_URL.format(urllib.quote_plus(q))
-      response, content = http.request(url, 'GET')
-      if response['status'] == '200':
-        content = cjson.decode(content)
-        for profile in content:
-          profiles[profile['screen_name']] = OnlineUser.get_short_profile(profile)
-          profile['_id'] = profile['screen_name']
-          OnlineUser.DB['user_profiles'].insert(profile)
-      else:
-        print 'REQUEST FAILED: ', url
-        print response
-        if response['status'] == 400: #ratelimit exceeded
-          break
+      try:
+        response, content = http.request(url, 'GET')
+        if response['status'] == '200':
+          content = cjson.decode(content)
+          for profile in content:
+            profiles[profile['screen_name']] = OnlineUser.get_short_profile(profile)
+            profile['_id'] = profile['screen_name']
+            OnlineUser.DB['user_profiles'].insert(profile)
+        else:
+          print 'REQUEST FAILED: ', url
+          print response
+          if response['status'] == 400: #ratelimit exceeded
+            break
+      except:
+        print sys.exc_info()[0]
       p = (i+1)*100
     return profiles
         
@@ -204,4 +207,4 @@ class Expert:
     self.v = value
 
 if __name__ == "__main__":
-	x = UserProfiles.get_profile_image_url("ShinerBeer")
+  x = UserProfiles.get_profile_image_url("ShinerBeer")

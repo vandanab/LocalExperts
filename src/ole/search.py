@@ -20,13 +20,13 @@ from utilities import geo
 #from src.utilities import geo
 from pygeocoder import Geocoder, GeocoderError
 from pymongo import Connection
-import pymongo
 import cjson
 import lucene
 import re
 import uuid
 import json
-
+import httplib2
+from bs4 import BeautifulSoup
 
 if __name__ == "__main__":
   location_searcher_ = None
@@ -91,7 +91,7 @@ def search(query=None):
   rankedDocs = rankDocs(parsed_query, location_searcher_, scoreDocs)
 
   for i in rankedDocs:
-    if parsed_query["user_study"] == "yes":
+    if parsed_query["profile"] == "yes":
       experts.append({"u": i["user"], "d": i["details"], "p": i["profile"], "t": i["tweets"]})
     else:
       experts.append({"u": i["user"], "d": i["details"]})
@@ -118,7 +118,7 @@ def textsearch(query=None):
 
   if DEBUG:
     print "Raw Query: ", query
-	
+
   analyzer = StandardAnalyzer(Version.LUCENE_CURRENT)
   parsed_query = process_query(query)
   if parsed_query is None:
@@ -163,7 +163,7 @@ def textsearch(query=None):
   rankedDocs = rankDocs(parsed_query, usermap_searcher_, scoreDocs)
     
   for i in rankedDocs:
-    if parsed_query["user_study"] == "yes":
+    if parsed_query["profile"] == "yes":
       experts.append({"u": i["user"], "d": i["details"], "p": i["profile"], "t": i["tweets"]})
       #experts.append({"u": i["user"], "d": i["details"], "t": i["tweets"]})
     else:
@@ -191,9 +191,12 @@ def submiteval(evaluation=None):
   ur = {}
   for i in evaluation:
     if "rel" in i or 'compare' in i:
-			#result_no = re.sub(r"rel", "", i)
-      result_no = i
+      #result_no = re.sub(r"rel", "", i)
+      parts = i.split("_")
+      #result_no = i
+      result_no = parts[0]
       ur[result_no] = evaluation[i]
+      ur["id"] = parts[1]
   print "sid: ", sid
   print ur
   db["user_response"].update({"_id": sid}, {"$set": {"ur": ur}})
@@ -246,10 +249,27 @@ def usersearch(query):
   return cjson.encode(docs)
 
 
-#def rankDocs(query_terms, searcher_, scoreDocs, locations={}, user_study="no"):
+@app.route('/cognos/<query>')
+def cognos(query):
+  cognos_url = 'http://twitter-app.mpi-sws.org/whom-to-follow/users.php?'+query
+  #cognos_url = 'http://twitter-app.mpi-sws.org/whom-to-follow/users.php?q=beer+houston'
+  http = httplib2.Http();
+  response, content = http.request(cognos_url, 'GET')
+  if response['status'] == '200':
+    soup = BeautifulSoup(content)
+    search_results = soup.find(id='results')
+    footer = soup.find('p', id='footer')
+    footer['class'] = 'footer'
+    footer['id'] = 'footer_c'
+    search_results.center.replace_with('')
+    #print str(search_results) + str(footer)
+    return str(search_results) + str(footer)
+  return ''
+
+
 def rankDocs(query, searcher_, scoreDocs):
   locations = query["locations"]
-  user_study = query["user_study"]
+  include_profile = query["profile"]
   rankedDocs = []
   users = []
   count = 0
@@ -302,13 +322,14 @@ def rankDocs(query, searcher_, scoreDocs):
       users.append(rankedDoc["user"])
       rankedDocs.append(rankedDoc)
 
-  if user_study == "yes":
+  if include_profile == "yes":
     rankedDocs = update_profile_information(users, rankedDocs, locations, query_location)
 
   rankedDocs = compute_doc_scores(rankedDocs, locations)
   #top 20
-  return rankedDocs[:20]
-  #return rankedDocs[:50]
+  #return rankedDocs[:20]
+  #top 15
+  return rankedDocs[:15]
 
 def compute_doc_scores(docs, locations):
   for doc in docs:
@@ -408,13 +429,14 @@ def process_query(query, query_type="t"):
     query_part = i.split("=")
     if (query_part[0] == "q"):
       if query_type == "l":
-        query_obj["location"] = query_part[1].lower()
+        locs = re.split(r"\s*,\s+", query_part[1].lower())
+        query_obj["location"] = locs[0]
       else:
         query_obj["terms"] = re.findall(r'"[\w\s]+"|\w+', query_part[1])
         #converting to lower case
         query_obj["terms"] = [x.lower() for x in query_obj["terms"]]
         if DEBUG:
-					print "Terms: ", query_obj["terms"]
+          print "Terms: ", query_obj["terms"]
         """
         if len(query_obj["terms"]) > 1:
           text_query = "(" + " OR ".join(query_obj["terms"]) + ")"
@@ -424,11 +446,14 @@ def process_query(query, query_type="t"):
         text_query = " OR ".join(query_obj["terms"])
         query_obj["text_query"] = text_query
     elif (query_part[0] == "l"):
-      query_obj["location"] = query_part[1].lower()
+      locs = re.split(r"\s*,\s+", query_part[1].lower())
+      query_obj["location"] = locs[0]
     elif (query_part[0] == "e"):
       query_obj["epsilon"] = float(query_part[1])
     elif (query_part[0] == "us"):
       query_obj["user_study"] = query_part[1]
+    elif (query_part[0] == "p"):
+      query_obj["profile"] = query_part[1]
   return query_obj
 
 """
@@ -444,15 +469,14 @@ def update_profile_information(users, docs, locations, query_location):
     #foursquare removed as we can consider it as a spam account
     #introduced this logic because sometimes the user write the wrong username while referring to a user
     #we get the profile from twitter but need to make sure that the username is corrected
-    if rd["user"] not in profiles or rd["user"] == "foursquare":
+    if rd["user"] not in profiles:
       found = False
       for i in profiles.keys():
         #the above logic might introduce duplicates so we remove those
         if rd["user"] == i.lower():
           rd["user"] = i
           found = True
-          break
-      if not found or rd["user"] == "foursquare" or rd["user"] in unique_users:
+      if not found:
         if rd["user"] not in no_profile_accounts:
           f.write(rd["user"]+"\n")
         #we could augment the tweets but leaving that for now in case the user already exists
@@ -460,6 +484,9 @@ def update_profile_information(users, docs, locations, query_location):
         #out on many endorsements.
         docs.remove(rd)
         continue
+    if rd["user"] == "foursquare" or rd["user"] in unique_users:
+      docs.remove(rd)
+      continue
     unique_users.add(rd["user"])
     """
     #Not dealing with last online time, because of the real time twitter call

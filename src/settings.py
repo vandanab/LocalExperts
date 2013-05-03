@@ -43,14 +43,16 @@ f_mentions = localfs_output_base_dir % 'local_tweets' + 'user_location_map'
 #f_mentions = spock_local_base_dir % 'local_tweets' + 'user_location_map'
 #f_mentions = spock_local_base_dir % 'local_tweets' + 'user_location_map_langinfo'
 
-#oufile for filtered tweets to aid in clustering to understand the topics
-f_tweet_texts = spock_local_base_dir % 'local_tweets' + 'tweets_text'
+#outfile for filtered tweets to aid in clustering to understand the topics
+#f_tweet_texts = spock_local_base_dir % 'local_tweets' + 'tweets_text'
 #f_tweet_texts = localfs_output_base_dir % 'local_tweets' + 'tweets_text'
+f_tweet_texts = localfs_output_base_dir % 'local_tweets' + 'tagged_tweet_texts'
 #f_local_tweets_filtered = spock_local_base_dir % 'local_tweets' + 'tweets_for_analysis'
 #f_local_tweets_filtered = localfs_output_base_dir % 'local_tweets' + 'tweets_for_analysis'
+f_local_tweets_filtered = localfs_output_base_dir % 'local_tweets' + 'tweets_for_analysis_filtered'
 #f_local_tweets_filtered = localfs_output_base_dir % 'local_tweets' + '02-13-2013/tweets_for_analysis'
 #f_local_tweets_filtered = hdfs_input_folder1 % 'local_tweets' + 'tweets_for_analysis_modified'
-f_local_tweets_filtered = hdfs_input_folder1 % 'local_tweets' + 'tweets_for_analysis'
+#f_local_tweets_filtered = hdfs_input_folder1 % 'local_tweets' + 'tweets_for_analysis'
 
 
 f_geo_distrib = localfs_output_base_dir % 'local_tweets' + 'geo_distrib.txt'
