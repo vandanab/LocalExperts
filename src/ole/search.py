@@ -12,7 +12,8 @@ R. Buckminster Fuller
 import sys
 sys.path.append('/home/vandana/workspace/LocalExperts/src/')
 from bottle import run, Bottle
-from lucene import Version, QueryParser, IndexSearcher
+from lucene import Version, QueryParser, IndexSearcher, PerFieldAnalyzerWrapper, \
+                    KeywordAnalyzer
 from lucene import SimpleFSDirectory, StandardAnalyzer, File, WhitespaceAnalyzer
 from online import Expert, OnlineUser, UserProfiles
 from settings import location_index_store_dir, usermap_index_store_dir, user_index_store_dir
@@ -27,6 +28,7 @@ import uuid
 import json
 import httplib2
 from bs4 import BeautifulSoup
+from math import log
 
 if __name__ == "__main__":
   location_searcher_ = None
@@ -119,7 +121,9 @@ def textsearch(query=None):
   if DEBUG:
     print "Raw Query: ", query
 
-  analyzer = StandardAnalyzer(Version.LUCENE_CURRENT)
+  analyzer = PerFieldAnalyzerWrapper(StandardAnalyzer(Version.LUCENE_CURRENT))
+  analyzer.addAnalyzer("loc", KeywordAnalyzer(Version.LUCENE_CURRENT))
+  #analyzer = StandardAnalyzer(Version.LUCENE_CURRENT)
   parsed_query = process_query(query)
   if parsed_query is None:
     return ""
@@ -135,7 +139,8 @@ def textsearch(query=None):
 
   text_query = parsed_query["text_query"]
   if len(locations.keys()) == 1:
-    real_query = text_query + " AND " + parsed_query["location"]
+    #real_query = text_query + " AND " + "loc:\"" + parsed_query["location"] + "\""
+    real_query = text_query + " AND \"" + parsed_query["location"] + "\""
   else:
     lc = 0
     for l in locations:
@@ -144,6 +149,7 @@ def textsearch(query=None):
             str(locations[l]["dwt"])
       """
       rq = "(" + "(" + text_query + ")" + " AND " + "\"" + l + "\"" + ")"
+      #rq = "(" + "(" + text_query + ")" + " AND " + "loc:\"" + l + "\"" + ")"
       if lc == 0:
         real_query = rq
       else:
@@ -155,13 +161,14 @@ def textsearch(query=None):
     print "Real Query: ", real_query
   #parse query using lucene parser and get docs
   p_query = QueryParser(Version.LUCENE_CURRENT, "text", analyzer).parse(real_query)
+  print str(p_query)
   scoreDocs = usermap_searcher_.search(p_query, 500).scoreDocs
   print "%s total matching documents." % len(scoreDocs)
  
   #rank results
   experts = []
   rankedDocs = rankDocs(parsed_query, usermap_searcher_, scoreDocs)
-    
+
   for i in rankedDocs:
     if parsed_query["profile"] == "yes":
       experts.append({"u": i["user"], "d": i["details"], "p": i["profile"], "t": i["tweets"]})
@@ -196,7 +203,8 @@ def submiteval(evaluation=None):
       #result_no = i
       result_no = parts[0]
       ur[result_no] = evaluation[i]
-      ur["id"] = parts[1]
+      if len(parts) > 1:
+        ur["id"] = parts[1]
   print "sid: ", sid
   print ur
   db["user_response"].update({"_id": sid}, {"$set": {"ur": ur}})
@@ -234,8 +242,10 @@ def usersearch(query):
       if profile[user]["location"] != None:
         p["hl"] = profile[user]["location"]
         if "status" in profile[user]:
+          p["sts"] = {}
           p["sts"]["text"] = profile[user]["status"]["text"]
-          p["sts"]["text"]["created_at"] = profile[user]["status"]["created_at"]
+          #print p["sts"]["text"]
+          p["sts"]["created_at"] = profile[user]["status"]["created_at"]
         p["foc"] = profile[user]["followers_count"]
         p["frc"] = profile[user]["friends_count"]
         p["sc"] = profile[user]["statuses_count"]
@@ -261,7 +271,8 @@ def cognos(query):
     footer = soup.find('p', id='footer')
     footer['class'] = 'footer'
     footer['id'] = 'footer_c'
-    search_results.center.replace_with('')
+    if "center" in search_results:
+      search_results.center.replace_with('')
     #print str(search_results) + str(footer)
     return str(search_results) + str(footer)
   return ''
@@ -296,6 +307,7 @@ def rankDocs(query, searcher_, scoreDocs):
         rankedDoc["details"]["tnm"] += num_tweets[i]
 
     tweets = {}
+    ner_tweets = {}
     def filter_tweets(query_terms, tweet):
       for i in query_terms:
         if i in tweet.lower():
@@ -312,24 +324,46 @@ def rankDocs(query, searcher_, scoreDocs):
           tweets[j[0]] = [json.dumps(item) for item in x["t"]]
         break
 
+      #check for ner tweets to appropriately account for location tweets in ranking
+      it = db["user_ner_location_tweets"].find({"sn": rankedDoc["user"], "l": j[0]})
+      for x in it:
+        if query["query_type"] == "t":
+          temp = [json.dumps(item) for item in x["t"] if filter_tweets(query["terms"], item)]
+          if len(temp) > 0:
+            ner_tweets[j[0]] = temp
+        else:
+          ner_tweets[j[0]] = [json.dumps(item) for item in x["t"]]
+        break
+
     #drop documents which do not have any endorsing tweets
+    """
     if not tweets:
-      #if DEBUG:
-        #print "No endorsing tweets"
       continue
-    else:
-      rankedDoc["tweets"] = tweets
-      users.append(rankedDoc["user"])
-      rankedDocs.append(rankedDoc)
+    """
+      
+    rankedDoc["tweets"] = tweets
+    if len(ner_tweets) > 0:
+      rankedDoc["ner_loc_tweets"] = ner_tweets
+    #add rankedDoc to the rankedDocs
+    users.append(rankedDoc["user"])
+    rankedDocs.append(rankedDoc)
 
   if include_profile == "yes":
-    rankedDocs = update_profile_information(users, rankedDocs, locations, query_location)
+    rankedDocs = update_profile_information(users, rankedDocs, locations, query_location, query["terms"])
+
+  for i in rankedDocs[:]:
+    if not i["tweets"] and i["details"]["term_des_count"] == 0:
+      rankedDocs.remove(i)
 
   rankedDocs = compute_doc_scores(rankedDocs, locations)
+
+  if DEBUG:
+    print [x["user"] for x in rankedDocs]
   #top 20
   #return rankedDocs[:20]
   #top 15
-  return rankedDocs[:15]
+  
+  return rankedDocs[:10]
 
 def compute_doc_scores(docs, locations):
   for doc in docs:
@@ -339,8 +373,10 @@ def compute_doc_scores(docs, locations):
     else:
       doc['details']['s'] = get_score(doc)
     """
-    if 'tweets' in doc:
+    if "tweets" in doc:
       doc["details"]["lsts"] = compute_lsnts(doc["tweets"], locations)
+      if "ner_loc_tweets" in doc:
+        doc["details"]["ner_lsts"] = compute_lsnts(doc["ner_loc_tweets"], locations)
       doc["details"]["s"] = get_score(doc)
     else:
       doc["details"]["ls"] = get_score_basic(doc)
@@ -355,14 +391,21 @@ def get_score(doc):
   return float(100*p["ls"] + 0.001*p["lot"] + 20000*p["h"] + \
                0.001*p["foc"] + 0.1*p["frc"] + 0.01*p["sc"])
   """
-  try:
-    if "h" in p:
-      return float(10*p["ls"] + 200*p["lsts"] + 100*p["h"])
-    else:
-      return float(10*p["ls"] + 200*p["lsts"])
-  except:
-    print p
-    raise
+  score = 0.0
+  score += 10*p["ls"]
+  if "h" in p:
+    score += 100*p["h"]
+  #if "ner_lsts" in p:
+    #score += 200*p["ner_lsts"]
+  if "lsts" in p:
+    score += 100*p["lsts"]
+  if "term_des_count" in p:
+    score += 100*p["term_des_count"]
+
+  #previous scoring functions
+  #return float(10*p["ls"] + 200*p["lsts"] + 100*p["h"])
+  #return float(10*p["ls"] + 200*p["lsts"])
+  return score
 
 def get_score_basic(doc):
   p = doc["details"]
@@ -400,20 +443,26 @@ def get_nearby_locations(location, epsilon):
                                                epsilon)
           if wdl:
             locations[i] = wdl
+  print locations
   return locations
 
 def get_weighted_distance_location(slat, slng, dlat, dlng, epsilon=0):
   l = {}
   d = geo.haversine_dist(slat, slng, dlat, dlng)
-  if epsilon > 0:
-    if d <= epsilon:
-    #dmin = 100KM, alpha = 2 in the monotonic distance weight rreducing formula
-      dweight = float((100.0/(d + 100.0))**2.0)
-      l = {"d": d, "dwt": dweight, "lat": dlat, "lng": dlng}
-  else:
-    dweight = float((100.0/(d + 100.0))**2.0)
+  dweight = 1.0
+  alpha = 2.0
+  if epsilon > 0 and d <= epsilon:
+    #dmin = 100KM, alpha = 4 in the monotonic distance weight reducing formula
+    #incorporating epsilon in the weight, where g(epsilon) = 1+log10(epsilon)
+    alpha = 4.0
+    g_epsilon = 1.0 + float(log(epsilon, 10))
+    alpha = alpha/g_epsilon
+    #dweight = float((100.0/(d + 100.0))**2.0)
+    dweight = float((100.0/(d + 100.0))**alpha)
     l = {"d": d, "dwt": dweight, "lat": dlat, "lng": dlng}
-  return l
+    return l
+  else:
+    return None
 
 """
 processes the query to collect all parameters passed
@@ -459,7 +508,7 @@ def process_query(query, query_type="t"):
 """
 populate the search result with users profile information
 """
-def update_profile_information(users, docs, locations, query_location):
+def update_profile_information(users, docs, locations, query_location, query_terms):
   unique_users = set()
   f = open("no_profiles.txt", "a+")
   no_profile_accounts = [x.strip() for x in f.readlines()]
@@ -543,6 +592,15 @@ def update_profile_information(users, docs, locations, query_location):
     rd["profile"]["name"] = profiles[rd["user"]]["name"]
     rd["profile"]["url"] = json.dumps(profiles[rd["user"]]["url"])
     rd["profile"]["des"] = json.dumps(profiles[rd["user"]]["description"])
+    
+    rd["details"]["term_des_count"] = 0
+    for i in query_terms:
+      if i in rd["profile"]["des"].lower():
+        rd["details"]["term_des_count"] += 1
+    
+    if not rd['tweets'] and rd["details"]["term_des_count"] == 0:
+      docs.remove(rd)
+    
     #if "profile_image_url" in profiles[rd["user"]]:
       #rd["profile"]["pic"] = json.dumps(profiles[rd["user"]]["profile_image_url"])
     #else:
