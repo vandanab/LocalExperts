@@ -63,15 +63,16 @@ class UserMentionTweets(ModifiedMRJob):
   def mapper(self, key, line):
     data = cjson.decode(line)
     ats = data['ats']
-    locs = data['top_locs']
+    #locs = data['top_locs']
+    locs = data['ner_locs']
     for i in ats:
       for j in locs:
         if 'lang' in data:
           tweetmention = {'name': j, 'tweet': {'tx': data['tx'], 't': data['t'],
-																							'id': data['id'], 'lg': data['lang']}}
+			'id': data['id'], 'lg': data['lang']}}
         else:
           tweetmention = {'name': j, 'tweet': {'tx': data['tx'], 't': data['t'],
-																							'id': data['id']}}
+			'id': data['id']}}
         yield i, tweetmention
     """
     for i in data['h']:
