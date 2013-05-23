@@ -27,6 +27,7 @@ import re
 import uuid
 import json
 import httplib2
+import datetime
 from bs4 import BeautifulSoup
 from math import log
 
@@ -40,6 +41,10 @@ if __name__ == "__main__":
   f = open("top200locations.txt", "r")
   ALL_LOCATIONS = [x.strip() for x in f.readlines()]
   f.close()
+  
+  #defaults
+  DEFAULT_NUM_RESULTS = 10
+  
   app = Bottle()
 
 
@@ -100,7 +105,7 @@ def search(query=None):
 
   response = {"sid": str(uuid.uuid1()), "es": experts}
 
-  if parsed_query["user_study"] == "yes":
+  if "user_study" in parsed_query and parsed_query["user_study"] == "yes":
     #write session to db
     session = {"l": parsed_query["location"],
               "_id": response["sid"], "ur": {}}
@@ -177,8 +182,11 @@ def textsearch(query=None):
       experts.append({"u": i["user"], "d": i["details"]})
 
   response = {"sid": str(uuid.uuid1()), "es": experts}
+  
+  if "with_request" in parsed_query and parsed_query["with_request"] == "yes":
+    response = {"q": parsed_query, "e": experts}
 
-  if parsed_query["user_study"] == "yes":
+  if "user_study" in parsed_query and parsed_query["user_study"] == "yes":
     #write session to db
     session = {"q": text_query, "l": parsed_query["location"],
               "_id": response["sid"], "ur": {}}
@@ -198,18 +206,29 @@ def submiteval(evaluation=None):
   ur = {}
   for i in evaluation:
     if "rel" in i or 'compare' in i:
-      #result_no = re.sub(r"rel", "", i)
-      parts = i.split("_")
-      #result_no = i
+      parts = []
+      index = i.find("_")
+      if(index > 0):
+        parts = [i[:index], i[index+1:]]
+      else:
+        parts = [i]
       result_no = parts[0]
-      ur[result_no] = evaluation[i]
+      #eval_obj comprises of the evaluation (e)
+      # (1 = relevant, 2 = irrelevant, 3 = not sure) and the twitter handle (u)
+      eval_obj = {}
+      if len(parts) > 1:
+        eval_obj = {"e": evaluation[i], "u": parts[1]}
+      else:
+        eval_obj = {"e": evaluation[i]}
+      ur[result_no] = eval_obj
+      """
       if len(parts) > 1:
         ur["id"] = parts[1]
+      """
+  ur["ts"] = str(datetime.datetime.now())
   print "sid: ", sid
   print ur
   db["user_response"].update({"_id": sid}, {"$set": {"ur": ur}})
-  #save response in db as per a session and calculate MAP estimate for the session
-  #ur = user response. For each query result: relevant = 1, not relevant = 2, not sure = 3
   return "success"
 
 
@@ -362,8 +381,10 @@ def rankDocs(query, searcher_, scoreDocs):
   #top 20
   #return rankedDocs[:20]
   #top 15
-  
-  return rankedDocs[:10]
+  num_results = DEFAULT_NUM_RESULTS
+  if "num_results" in query:
+    num_results = query["num_results"]
+  return rankedDocs[:num_results]
 
 def compute_doc_scores(docs, locations):
   for doc in docs:
@@ -379,7 +400,7 @@ def compute_doc_scores(docs, locations):
         doc["details"]["ner_lsts"] = compute_lsnts(doc["ner_loc_tweets"], locations)
       doc["details"]["s"] = get_score(doc)
     else:
-      doc["details"]["ls"] = get_score_basic(doc)
+      doc["details"]["s"] = get_score_basic(doc)
   rankedDocs = sorted(docs, key=lambda k: k["details"]["s"], reverse=True)
   return rankedDocs
 
@@ -503,6 +524,10 @@ def process_query(query, query_type="t"):
       query_obj["user_study"] = query_part[1]
     elif (query_part[0] == "p"):
       query_obj["profile"] = query_part[1]
+    elif (query_part[0] == "wr"):
+      query_obj["with_request"] = query_part[1]
+    elif (query_part[0] == "n"):
+      query_obj["num_results"] = int(query_part[1])
   return query_obj
 
 """
@@ -609,6 +634,7 @@ def update_profile_information(users, docs, locations, query_location, query_ter
       rd["profile"]["pic"] = url
   f.close()
   return docs
+
  
 """
 def run(searcher, analyzer):
