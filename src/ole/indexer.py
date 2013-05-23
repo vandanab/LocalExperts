@@ -6,10 +6,11 @@ The indexer for the Ole search engine.
 '''
 
 from lucene import SimpleFSDirectory, File, Document, Field, \
-    StandardAnalyzer, IndexWriter, Version
+    StandardAnalyzer, IndexWriter, Version, PerFieldAnalyzerWrapper
 from settings import location_index_store_dir, usermap_index_store_dir, \
-                      dir_user_location_map, user_index_store_dir
+                      dir_user_location_map#, user_index_store_dir
 from pymongo import Connection, ASCENDING
+from lucene_ext import UnderscoreSeparatorAnalyzer
 import cjson
 import lucene
 import os
@@ -164,7 +165,12 @@ class UserMapIndexer(Indexer):
               """
               tw_texts.extend(tweets[i['name']])
               num_tweets[i['name']] = len(i['tweets'])
+            """
             doc.add(Field("loc", " ".join(locations),
+                        Field.Store.NO,
+                        Field.Index.ANALYZED))
+            """
+            doc.add(Field("loc", "_".join(locations),
                         Field.Store.NO,
                         Field.Index.ANALYZED))
             doc.add(Field("text", " ".join(tw_texts), Field.Store.NO,
@@ -190,7 +196,7 @@ class UserMapIndexer(Indexer):
     # optimize for fast search and commit the changes
     self.writer.optimize()
     self.writer.commit()
-    UserMapIndexer.DB['user_location_tweets'].ensure_index([('sn', 1), ('l', 1)])
+    #UserMapIndexer.DB['user_location_tweets'].ensure_index([('sn', 1), ('l', 1)])
 
 """
 Index for available users
@@ -278,6 +284,28 @@ def users_to_db(user_location_map_dir):
       except Exception, e:
         print "Failed in users_to_db:", e
 
+def ner_locations_to_db(user_location_map_dir):
+  conn = Connection("wheezy.cs.tamu.edu", 27017)
+  db = conn['local_expert_tweets']
+  for root, _, filenames in os.walk(user_location_map_dir):
+    for filename in filenames:
+      try:
+        path = os.path.join(root, filename)
+        f = open(path, 'r')
+        # every line in the file is a user_location_map document to be indexed
+        for line in f:
+          data = cjson.decode(line)
+          for i in data['locations']:
+            tweets = [x['tx'] for x in i['tweets']]
+            try:
+              db['user_ner_location_tweets'].insert({'sn': data['user'].strip('@'),
+                                                     'l': i['name'],
+                                                     't': tweets})
+            except Exception, e:
+              print "Failed while adding to DB:", len(tweets[i['name']])
+      except Exception, e:
+        print "Failed in ner_locations_to_db:", e
+
 # before we close we always want to close the writer to prevent
 # corruption to the index
 def quit_gracefully(*args):
@@ -349,7 +377,9 @@ if __name__ == '__main__':
   
   env=lucene.initVM()
   # For now I just use the StandardAnalyzer, but you can change this
-  analyzer = StandardAnalyzer(Version.LUCENE_CURRENT)
+  #analyzer = StandardAnalyzer(Version.LUCENE_CURRENT)
+  analyzer = PerFieldAnalyzerWrapper(StandardAnalyzer(Version.LUCENE_CURRENT))
+  analyzer.addAnalyzer("loc", UnderscoreSeparatorAnalyzer(Version.LUCENE_CURRENT))
   
   """
   #location indexer
@@ -364,8 +394,7 @@ if __name__ == '__main__':
   location_indexer.run()
   writer.close()
   """
-  
-  """
+ 
   #user_location_map indexer
   USERMAP_INDEX_STORE_DIR = usermap_index_store_dir
   usermap_index_dir = createIndexDir(USERMAP_INDEX_STORE_DIR)
@@ -377,8 +406,9 @@ if __name__ == '__main__':
   usermap_indexer = UserMapIndexer(USERMAP_INDEX_STORE_DIR, writer, directoryToWalk)
   usermap_indexer.run()
   writer.close()
-  """
+
   
+  """
   #user indexer
   USER_INDEX_STORE_DIR = user_index_store_dir
   user_index_dir = createIndexDir(USER_INDEX_STORE_DIR)
@@ -390,8 +420,9 @@ if __name__ == '__main__':
   user_indexer = UserIndexer(USER_INDEX_STORE_DIR, writer, directoryToWalk)
   user_indexer.run()
   writer.close()
-  
+  """
   #users_to_db(directoryToWalk)
+  #ner_locations_to_db(directoryToWalk)
   
   print "Cleaning up and terminating"
   exit(0)

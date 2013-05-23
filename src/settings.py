@@ -30,6 +30,8 @@ local_tweets_input_folder = localfs_input_folder % 'local_tweets'
 #input when script for user_mention_map run on spock locally
 f_local_tweets = spock_local_base_dir % 'local_tweets' + 'tweets_'
 
+f_count_at_mentions = spock_local_base_dir % 'local_tweets' + 'num_tweets_at_mentions'
+
 #input when user_mention_map run from data in dfs
 #f_local_tweets = hdfs_input_folder1 % 'local_tweets' + 'tweets'
 
