@@ -48,8 +48,9 @@ f_mentions = spock_local_base_dir % 'local_tweets' + 'user_location_map_ner'
 
 #outfile for filtered tweets to aid in clustering to understand the topics
 #f_tweet_texts = spock_local_base_dir % 'local_tweets' + 'tweets_text'
+f_tweet_texts = spock_local_base_dir % 'local_tweets' + 'tweets_text_ner_locs'
 #f_tweet_texts = localfs_output_base_dir % 'local_tweets' + 'tweets_text'
-f_tweet_texts = localfs_output_base_dir % 'local_tweets' + 'tagged_tweet_texts'
+#f_tweet_texts = localfs_output_base_dir % 'local_tweets' + 'tagged_tweet_texts'
 #f_local_tweets_filtered = spock_local_base_dir % 'local_tweets' + 'tweets_for_analysis'
 #f_local_tweets_filtered = localfs_output_base_dir % 'local_tweets' + 'tweets_for_analysis'
 #f_local_tweets_filtered = localfs_output_base_dir % 'local_tweets' + 'tweets_for_analysis_filtered'
@@ -63,6 +64,7 @@ f_geo_distrib = localfs_output_base_dir % 'local_tweets' + 'geo_distrib.txt'
 #f_geo_distrib = spock_local_base_dir % 'local_tweets' + 'geo_distrib.txt'
 
 local_clusters_folder = os.path.expanduser('~/workspace/LocalExperts/data/clusters/')
+spock_clusters_folder = os.path.expanduser('~/LocalExperts/data/clusters/')
 
 f_local_qa_tweets = chevron_output_base_dir % 'local_q_tweets' + 'tweets'
 
