@@ -11,17 +11,27 @@ import cjson
 import operator
 import os
 import pickle
-import numpy as np
 
 #Visualize LDA generated topics
 class Topics:
-  def __init__(self, model_folder, clusters_folder, num_topics, cluster_labels):
+  def __init__(self, model_folder, clusters_folder, num_topics, cluster_labels, 
+              output_folder=None):
     self.num_topics = num_topics
     self.cluster_labels = cluster_labels
     self.model_location = model_folder
     self.clusters_location = clusters_folder
-    self.geo_topic_matrices = "geo_topic_matrices"
+    if output_folder:
+      self.geo_topic_matrices = output_folder + "geo_topic_matrices"
+      self.topic_cluster_sizes = output_folder + "topic_cluster_sizes"
+    else:
+      self.geo_topic_matrices = local_tweets_input_folder + "geo_topic_matrices"
+      self.topic_cluster_sizes = local_tweets_input_folder + "topic_cluster_sizes"
+    
   
+  """
+  generates two matrices (tranpose of each other)
+  which contain the number of tweets about topic in a particular location
+  """
   def generate_geo_cluster_matrix(self, locations_file):
     f = open(locations_file, "r")
     locations = [x.strip() for x in f.readlines()]
@@ -46,6 +56,9 @@ class Topics:
     pickle.dump({"cgm": clusters_geo_matrix, "gcm": geo_clusters_matrix}, f)
     f.close()
   
+  """
+  generates the fancy plots for which location is famous for which topic
+  """
   def topics_distribution(self, clusters_to_represent=[]):
     f = open(self.geo_topic_matrices, "r")
     matrix = pickle.load(f)
@@ -81,6 +94,9 @@ class Topics:
       plt.title(self.cluster_labels[i])
       plt.show()
   
+  """
+  generates the topic distribution of top topics for specified locations (pie)
+  """
   def geo_cluster_pie(self, output_folder, clusters_to_represent=[], locations_to_represent=[]):
     f = open(self.geo_topic_matrices, "r")
     matrix = pickle.load(f)
@@ -132,23 +148,88 @@ class Topics:
       else:
         result[i] = 0
     return result
+  
+  def topic_cluster_distribution(self):
+    def file_len(fname):
+      with open(fname) as f:
+          for i, _ in enumerate(f):
+              pass
+      return i + 1
+    Y = []
+    for root, _, files in os.walk(self.clusters_location):
+      for f in files:
+        fname = root + '/' + f
+        Y.append(file_len(fname))
+    print Y
+    print len(Y)
+    f = open(self.topic_cluster_sizes, "w")
+    pickle.dump(Y, f)
+    f.close()
+    
+  def plot_topic_cluster_sizes(self):
+    f = open(self.topic_cluster_sizes, "r")
+    Y_all = pickle.load(f)
+    f.close()
+    #filter not sure and useless clusters
+    labels, Y = [], []
+    for i in range(self.num_topics):
+      if "not sure" in self.cluster_labels[i] or "useless" in self.cluster_labels[i]:
+        continue
+      else:
+        Y.append(Y_all[i])
+        labels.append(self.cluster_labels[i])
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    X = range(len(Y))
+    ax.bar(X, Y, 0.35, color='g')
+    ax.set_ylabel("Num tweets per cluster")
+    ax.set_title("Distribution of tweets across topics in dataset")
+    ax.set_xticks(X)
+    ax.set_xticklabels(labels)
+    fig.autofmt_xdate()
+    plt.show()
 
+GEO_LOCATIONS_FILE = "misc_geolocationnames_datacleaning/top200locations.txt"
 def main():
+  """
+  # files have been removed/moved
   f_clabels = local_clusters_folder + 'cluster_labels.txt'
   f_clusters = local_clusters_folder + 'v-semifinal/'
   f_model = local_tweets_input_folder + 'last-model/'
+  """
+  f_clabels = local_clusters_folder + "50_clusters_new_data/cluster_labels.txt"
+  f_clusters = local_clusters_folder + "50_clusters_new_data/files/"
+  f_output = local_clusters_folder + "50_clusters_new_data/temp/"
+  f_model = local_tweets_input_folder + "lda_models/model_50_clusters_new_data/"
   cluster_labels = [x.strip() for x in open(f_clabels, "r").readlines()]
-  ts = Topics(f_model, f_clusters, 30, cluster_labels)
-  #ts.generate_geo_cluster_matrix("misc_geolocationnames_datacleaning/top200locations.txt")
+  ts = Topics(f_model, f_clusters, 50, cluster_labels, f_output)
+  ts.generate_geo_cluster_matrix(GEO_LOCATIONS_FILE)
+  """
   clusters_to_represent = [1, 2, 4, 5, 7, 12, 13, 14, 15, 16,
                            17, 19, 20, 21, 23, 24, 28, 29]
   locations_to_represent = ['houston', 'london',
                      'austin', 'sunnyvale', 'mumbai']
   ts.topics_distribution(clusters_to_represent)
   #ts.geo_cluster_pie(f_clusters+'images/', clusters_to_represent, locations_to_represent)
+  """
+  
+"""
+Plotting topic cluster distribution
+"""
+def main2():
+  f_clabels = local_clusters_folder + "50_clusters_old_data/cluster_labels.txt"
+  f_clusters = local_clusters_folder + "50_clusters_old_data/files/"
+  f_output = local_clusters_folder + "50_clusters_old_data/temp/"
+  f_model = local_tweets_input_folder + "lda_models/model_50_clusters_old_data/"
+  cluster_labels = [x.strip() for x in open(f_clabels, "r").readlines()]
+  print len(cluster_labels)
+  ts = Topics(f_model, f_clusters, 50, cluster_labels, f_output)
+  #ts.topic_cluster_distribution()
+  ts.plot_topic_cluster_sizes()
 
 if __name__ == "__main__":
-  main()
+  #main()
+  main2()
 
 """
               colors=("#E60F39", "#AC334B", "#950521", "#F2486A", "#FBD44B",
