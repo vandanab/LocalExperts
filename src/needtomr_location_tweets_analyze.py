@@ -11,8 +11,8 @@ import operator
 #from sklearn.feature_extraction.text import TfidfVectorizer
 from pymongo import Connection
 from sklearn.cluster import KMeans
-from settings import f_local_tweets, f_local_tweets_filtered, f_tweet_texts, local_clusters_folder, lda, spock_local_base_dir, f_geo_distrib
-from utilities import geo
+from settings import f_local_tweets, f_local_tweets_filtered, f_tweet_texts, local_clusters_folder, lda, spock_local_base_dir, f_geo_distrib, spock_clusters_folder
+#from utilities import geo
 from nltk.corpus import stopwords
 from math import log
 
@@ -99,6 +99,7 @@ class LocationTweetsAnalysis:
 		f1.close()
 		f.close()
 
+	"""
 	@staticmethod
 	def get_geo_distrib(tweets_file, outfile_geo_distrib, lang=None):
 		f = open(tweets_file, 'r')
@@ -119,7 +120,7 @@ class LocationTweetsAnalysis:
 		f = open(outfile_geo_distrib, 'w')
 		f.write(cjson.encode(geo_dict))
 		f.close()
-	
+	"""
 	"""
 	@staticmethod
 	def find_category_clusters_km(infile, outfolder, k=10):
@@ -152,7 +153,7 @@ class LocationTweetsAnalysis:
 		f.write(str(len(lines)) + '\n')
 		f.writelines(lines)
 		f.close()
-		subprocess.call([lda, '-est', '-ntopics', str(k), '-twords', str(twords), '-savestep', str(5000), '-dfile', d+infile, '-niters', str(10000)])
+		subprocess.call([lda, '-est', '-ntopics', str(k), '-twords', str(twords), '-savestep', str(5000), '-dfile', d+infile, '-niters', str(7000)])
 		f = open(d+'model-final.theta', 'r')
 		f1 = open(d+objfile, 'r')
 		for l in f:
@@ -275,7 +276,8 @@ def main():
 	#LocationTweetsAnalysis.get_tweettexts(f_local_tweets_filtered, f_tweet_texts)
 	#LocationTweetsAnalysis.find_category_clusters_km(f_tweet_texts, local_clusters_folder, 50)
 	#LocationTweetsAnalysis.get_tweettexts_en_from_processed_file(f_tweet_texts+'.full.0', f_tweet_texts)
-	LocationTweetsAnalysis.find_category_clusters_lda(spock_local_base_dir%'local_tweets', 'tweets_text', 'tweets_text.full', local_clusters_folder+'v-final/', k=50)
+	#LocationTweetsAnalysis.find_category_clusters_lda(spock_local_base_dir%'local_tweets', 'tweets_text', 'tweets_text.full', local_clusters_folder+'v-final/', k=50)
+	LocationTweetsAnalysis.find_category_clusters_lda(spock_local_base_dir%'local_tweets', 'tweets_text_top_locs', 'tweets_text_top_locs.full', spock_clusters_folder+'v-top/', k=50)
 
 	#where can analysis
 	#LocationTweetsAnalysis.get_wherecan_tweets(f_local_tweets_filtered, 'wherecan.txt')
