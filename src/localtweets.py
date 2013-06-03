@@ -12,6 +12,9 @@ import cjson
 import nltk
 import re
 
+"""
+Filters tweets which contain toplocations and user mentions in the tweet
+"""
 class LocalTweets(ModifiedMRJob):
   DEFAULT_INPUT_PROTOCOL = 'raw_value'
   AT_RE = re.compile(r"@\w+")
@@ -54,6 +57,50 @@ class LocalTweets(ModifiedMRJob):
     tokens_r = nltk.regexp_tokenize(text, pattern)
     return tokens_r
 
+
+"""
+Just counts how many tweets containing top locations also contain @mentions.
+For statistics purposes - to be mentioned in report
+"""
+class CountAtMentionTweets(ModifiedMRJob):
+  DEFAULT_INPUT_PROTOCOL = 'raw_value'
+  AT_RE = re.compile(r"@\w+")
+
+  def configure_options(self):
+    super(CountAtMentionTweets, self).configure_options()
+    self.add_file_option('--locations', default='top200locations.txt')
+  
+  def __init__(self, *args, **kwargs):
+    super(CountAtMentionTweets, self).__init__(*args, **kwargs)
+    self.locs = set([x.strip().lower() for x in open(self.options.locations, 'r').readlines()])
+
+  def mapper(self, key, line):
+    data = cjson.decode(line)
+    tx = data['tx'].lower()
+    loc_words = []
+    for i in self.locs:
+      try:
+        if i in tx:
+          loc_words.append(i)
+      except:
+        continue
+    if len(loc_words) > 0:
+      at_mentions = self.AT_RE.findall(data['tx'])
+      if len(at_mentions) > 0:
+        yield "at_count", 1
+      else:
+        yield "no_at_count", 1
+  
+  def reducer(self, key, counts):
+    total = 0
+    for i in counts:
+      total += i
+    yield key, total
+
+
+"""
+Create user location mention map
+"""
 class UserMentionTweets(ModifiedMRJob):
   DEFAULT_INPUT_PROTOCOL = 'raw_value'
   
@@ -63,15 +110,16 @@ class UserMentionTweets(ModifiedMRJob):
   def mapper(self, key, line):
     data = cjson.decode(line)
     ats = data['ats']
-    locs = data['top_locs']
+    #locs = data['top_locs']
+    locs = data['ner_locs']
     for i in ats:
       for j in locs:
         if 'lang' in data:
           tweetmention = {'name': j, 'tweet': {'tx': data['tx'], 't': data['t'],
-																							'id': data['id'], 'lg': data['lang']}}
+			'id': data['id'], 'lg': data['lang']}}
         else:
           tweetmention = {'name': j, 'tweet': {'tx': data['tx'], 't': data['t'],
-																							'id': data['id']}}
+			'id': data['id']}}
         yield i, tweetmention
     """
     for i in data['h']:
@@ -102,6 +150,10 @@ class UserMentionTweets(ModifiedMRJob):
       added = False
     yield key, mentions
 
+
+"""
+Filtering tweets: consider tweets containing only top200locations file locations.
+"""
 class FilterTweets(ModifiedMRJob):
   DEFAULT_INPUT_PROTOCOL = 'raw_value'
   
@@ -126,6 +178,7 @@ class FilterTweets(ModifiedMRJob):
     
 if __name__ == '__main__':
   #LocalTweets.run()
-  UserMentionTweets.run()
+  #UserMentionTweets.run()
   #FilterTweets.run()
+  CountAtMentionTweets.run()
     

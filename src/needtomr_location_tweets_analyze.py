@@ -80,6 +80,46 @@ class LocationTweetsAnalysis:
 		f2.close()
 	
 	@staticmethod
+	def get_unprocessed_tweettexts(tweets_file, outfile):
+		f = open(tweets_file, 'r')
+		f1 = open(outfile, 'w')
+		for l in f:
+			data = cjson.decode(l)
+			tx = data['tx'].encode('ascii','ignore')
+			tx = tx.strip()
+			tx = ' '.join(re.split('\s+', tx))
+			if tx and len(tx) > 0:
+				#f1.write(tx+'\n')
+				f1.write(cjson.encode(data)+'\n')
+		f.close()
+		f1.close()
+	
+	@staticmethod
+	def update_tweet_with_ner_locations(tweet_text_file, tweets_file, outfile):
+		f = open(tweet_text_file, 'r')
+		f1 = open(tweets_file, 'r')
+		f2 = open(outfile, 'w')
+		for l in f:
+			data = cjson.decode(f1.readline())
+			ner_locs = []
+			r1 = [x.end() for x in re.finditer(r'<LOCATION>', l)]
+			r2 = [x.start() for x in re.finditer(r'</LOCATION>', l)]
+			if len(r2) > len(r1):
+				temp = [0]
+				temp.extend(r1)
+				r1 = temp
+			elif len(r1) > len(r2):
+				r2.append(len(l))
+			for i in range(len(r1)):
+				ner_locs.append(l[r1[i]:r2[i]].strip().lower())
+			#print ner_locs
+			data['ner_locs'] = ner_locs
+			f2.write(cjson.encode(data)+'\n') 
+		f2.close()
+		f1.close()
+		f.close()
+		
+	@staticmethod
 	def get_tweettexts_en(tweets_file, outfile):
 		LocationTweetsAnalysis.get_tweettexts(tweets_file, outfile, 'en')
 
@@ -167,6 +207,34 @@ class LocationTweetsAnalysis:
 					maxprob = probs[i]
 					topic = i
 			f2 = open(cluster_outfolder + 'cluster' + str(topic), 'a')
+			f2.write(obj)
+			f2.close()
+		f1.close()
+		f.close()
+	
+	@staticmethod
+	def alternate_cluster_assignment_lda(model_dir, objfile, cluster_outfolder, k=20):
+		"""
+		assigning a tweet to two topic clusters (top two probability)
+		"""
+		f = open(model_dir+'model-final.theta', 'r')
+		f1 = open(objfile, 'r')
+		for l in f:
+			probs = l.split()
+			obj = f1.readline()
+			probs = [float(x) for x in probs]
+			topic = -1
+			maxprob = -1
+			secondtopic = -1
+			for i in range(len(probs)):
+				if probs[i] > maxprob:
+					secondtopic = topic
+					maxprob = probs[i]
+					topic = i
+			f2 = open(cluster_outfolder + 'cluster' + str(topic), 'a')
+			f2.write(obj)
+			f2.close()
+			f2 = open(cluster_outfolder + 'cluster' + str(secondtopic), 'a')
 			f2.write(obj)
 			f2.close()
 		f1.close()
@@ -277,7 +345,8 @@ def main():
 	#LocationTweetsAnalysis.find_category_clusters_km(f_tweet_texts, local_clusters_folder, 50)
 	#LocationTweetsAnalysis.get_tweettexts_en_from_processed_file(f_tweet_texts+'.full.0', f_tweet_texts)
 	#LocationTweetsAnalysis.find_category_clusters_lda(spock_local_base_dir%'local_tweets', 'tweets_text', 'tweets_text.full', local_clusters_folder+'v-final/', k=50)
-	LocationTweetsAnalysis.find_category_clusters_lda(spock_local_base_dir%'local_tweets', 'tweets_text_top_locs', 'tweets_text_top_locs.full', spock_clusters_folder+'v-top/', k=50)
+	#LocationTweetsAnalysis.find_category_clusters_lda(spock_local_base_dir%'local_tweets', 'tweets_text_top_locs', 'tweets_text_top_locs.full', spock_clusters_folder+'v-top/', k=50)
+	LocationTweetsAnalysis.find_category_clusters_lda(spock_local_base_dir%'local_tweets', 'tweets_text_ner_locs', 'tweets_text_ner_locs.full', spock_clusters_folder+'v-ner/', k=50)
 
 	#where can analysis
 	#LocationTweetsAnalysis.get_wherecan_tweets(f_local_tweets_filtered, 'wherecan.txt')
@@ -290,6 +359,10 @@ def main():
 	#LocationTweetsAnalysis.plot_geo_distrib('geo_distrib.txt')
 	
 	#LocationTweetsAnalysis.plot_geo_distrib1('geo_distrib1.txt')
+	
+	#refined location prediction
+	#LocationTweetsAnalysis.get_unprocessed_tweettexts(f_local_tweets_filtered, f_tweet_texts)
+	#LocationTweetsAnalysis.update_tweet_with_ner_locations(f_tweet_texts, f_local_tweets_filtered, f_local_tweets_filtered+'_ner')
 	
 
 if __name__ == '__main__':

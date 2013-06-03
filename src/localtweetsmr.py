@@ -6,9 +6,11 @@ Map reduce to get tweets containing location
 '''
 from datetime import datetime
 from library.mrjobwrapper import runMRJob
-from settings import f_local_tweets, input_folder, f_mentions, f_local_tweets_filtered
+from settings import f_local_tweets, input_folder, f_mentions, \
+                      f_local_tweets_filtered, f_count_at_mentions
 from utilities import fs
-from localtweets import LocalTweets, UserMentionTweets, FilterTweets
+from localtweets import LocalTweets, UserMentionTweets, FilterTweets, \
+                        CountAtMentionTweets
 
 class LocalTweetsMRJobRunner(object):
   @staticmethod
@@ -27,6 +29,24 @@ class LocalTweetsMRJobRunner(object):
              #args = [],
              jobconf={'mapred.reduce.tasks':300, 'mapred.task.timeout': 86400000}
     )
+  
+  @staticmethod
+  def count_at_mentions(input_files_start_time, input_files_end_time):
+    mr_class = CountAtMentionTweets
+    output_file = f_count_at_mentions
+    runMRJob(mr_class,
+             output_file,
+             # uncomment when running on local
+             #fs.get_local_input_files(local_tweets_input_folder),
+             fs.get_dated_input_files(input_files_start_time,
+                                      input_files_end_time,
+                                      input_folder),
+             mrJobClassParams = {'job_id': 'as'},
+             # uncomment when running on local
+             #args = [],
+             jobconf={'mapred.reduce.tasks':300, 'mapred.task.timeout': 86400000}
+    )
+    
     
   @staticmethod
   def user_mention_map(input_files):
@@ -62,11 +82,17 @@ class LocalTweetsMRJobRunner(object):
     LocalTweetsMRJobRunner.local_tweets(input_files_start_time,
                                         input_files_end_time)
     """
+    """
     input_files = []
     #input_files.append(f_local_tweets)
     input_files.append(f_local_tweets_filtered)
     #LocalTweetsMRJobRunner.filter_tweets(input_files)
     LocalTweetsMRJobRunner.user_mention_map(input_files)
+    """
+    input_files_start_time, input_files_end_time = \
+                            datetime(2012, 1, 1), datetime(2012, 10, 31)
+    LocalTweetsMRJobRunner.count_at_mentions(input_files_start_time,
+                                        input_files_end_time)
 
 if __name__ == '__main__':
   LocalTweetsMRJobRunner.run()
