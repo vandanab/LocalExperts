@@ -57,6 +57,7 @@ f_geo_distrib = localfs_output_base_dir % 'local_tweets' + 'geo_distrib.txt'
 #f_geo_distrib = spock_local_base_dir % 'local_tweets' + 'geo_distrib.txt'
 
 local_clusters_folder = os.path.expanduser('~/workspace/LocalExperts/data/clusters/')
+spock_clusters_folder = os.path.expanduser('~/LocalExperts/data/clusters/')
 
 f_local_qa_tweets = chevron_output_base_dir % 'local_q_tweets' + 'tweets'
 
