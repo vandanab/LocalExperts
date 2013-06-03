@@ -10,6 +10,7 @@ import json
 import os
 import re
 import matplotlib.pyplot as plt
+from numpy import arange
 from pymongo import Connection
 from math import log
 from bs4 import BeautifulSoup
@@ -265,6 +266,7 @@ class Precision:
     it = self.db["user_response"].find({"ur": {"$ne": {}}})
     total_queries, valid_evals, valid_evals_with_results = 0, 0, 0
     num_ole_rated_better, num_cognos_rated_better, num_both_same = 0, 0, 0
+    map_ole, map_cognos = [], []
     for record in it:
       old_style_user_eval = False
       total_queries += 1
@@ -275,45 +277,77 @@ class Precision:
       if type(user_eval["arel1"]) is unicode:
         #maybe use this later, depending on valid_evals
         old_style_user_eval = True
-        continue
+        #continue
       else:
         valid_evals_with_results += 1
-        num_relevant_docs_ole = 0.0
-        num_relevant_docs_cognos = 0.0
-        prec_ole = []
-        prec_cognos = []
-        for i in range(k+1):
-          if "arel"+str(i+1) in user_eval:
-            e = user_eval["arel"+str(i+1)] if old_style_user_eval else user_eval["arel"+str(i+1)]["e"]
-            if e == "1":
-              num_relevant_docs_ole += 1
-              prec_ole.append(float(num_relevant_docs_ole/float(i+1)))
-            else:
-              prec_ole.append(0.0)
-          if "crel"+str(i) in user_eval:
-            e = user_eval["crel"+str(i)] if old_style_user_eval else user_eval["crel"+str(i)]["e"]
-            if e == "1":
-              num_relevant_docs_cognos += 1
-              prec_cognos.append(float(num_relevant_docs_cognos/float(i+1)))
-            else:
-              prec_cognos.append(0.0)
-        if "compare" in user_eval:
-          e = user_eval["compare"] if old_style_user_eval else user_eval["compare"]["e"]
-          if e == "1": num_ole_rated_better += 1
-          elif e == "2": num_cognos_rated_better += 1
-          else: num_both_same += 1
-        print "For query: q = " + record["q"] + " and l = " + record["l"]
-        print "Precision at " + str(k) + " (OLE): ", str(prec_ole)
-        print "Precision at " + str(k) + " (Cognos): ", str(prec_cognos)
-        if plot:
-          plot_title = record["q"] + "-" + record["l"]
-          self.plot_precision_at_k(plot_title, prec_ole, prec_cognos, k)
+      num_relevant_docs_ole = 0.0
+      num_relevant_docs_cognos = 0.0
+      prec_ole = []
+      prec_cognos = []
+      rec_ole, rec_cognos = [], []
+      for i in range(k+1):
+        if "arel"+str(i+1) in user_eval:
+          e = user_eval["arel"+str(i+1)] if old_style_user_eval else user_eval["arel"+str(i+1)]["e"]
+          if e == "1":
+            num_relevant_docs_ole += 1
+            prec_ole.append(float(num_relevant_docs_ole/float(i+1)))
+          else:
+            prec_ole.append(0.0)
+          rec_ole.append(num_relevant_docs_ole)
+        if "crel"+str(i) in user_eval:
+          e = user_eval["crel"+str(i)] if old_style_user_eval else user_eval["crel"+str(i)]["e"]
+          if e == "1":
+            num_relevant_docs_cognos += 1
+            prec_cognos.append(float(num_relevant_docs_cognos/float(i+1)))
+          else:
+            prec_cognos.append(0.0)
+          rec_cognos.append(num_relevant_docs_cognos)
+      if "compare" in user_eval:
+        e = user_eval["compare"] if old_style_user_eval else user_eval["compare"]["e"]
+        if e == "1": num_ole_rated_better += 1
+        elif e == "2": num_cognos_rated_better += 1
+        else: num_both_same += 1
+      
+      if num_relevant_docs_ole > 0:
+        rec_ole = [x/num_relevant_docs_ole for x in rec_ole[:]]
+      if num_relevant_docs_cognos > 0:
+        rec_cognos = [x/num_relevant_docs_cognos for x in rec_cognos[:]]
+      
+      #update map
+      if num_relevant_docs_ole > 0:
+        map_ole.append(sum(prec_ole)/num_relevant_docs_ole)
+      else:
+        map_ole.append(0)         
+      if num_relevant_docs_cognos > 0:
+        map_cognos.append(sum(prec_cognos)/num_relevant_docs_cognos)
+      else:
+        map_cognos.append(0)
+      
+      #print details
+      print "For query: q = " + record["q"] + " and l = " + record["l"]
+      print "Precision at " + str(k) + " (OLE): ", str(prec_ole)
+      print "Recall (OLE): ", str(rec_ole)
+      print "Precision at " + str(k) + " (Cognos): ", str(prec_cognos)
+      print "Recall (Cognos): ", str(rec_cognos)
+      if plot:
+        plot_title = record["q"] + "-" + record["l"]
+        #self.plot_precision_at_k(plot_title, prec_ole, prec_cognos, k)
+        """
+        self.plot_prec_recall(plot_title, prec_ole, rec_ole,
+                              prec_cognos, rec_cognos)
+        """
+          
     print "total queries: ", str(total_queries)
     print "num of valid evals: ", str(valid_evals)
     print "num of valid evals with results: ", str(valid_evals_with_results)
     print "num ole rated better: ", str(num_ole_rated_better)
     print "num cognos rated better: ", str(num_cognos_rated_better)
     print "num both same: ", str(num_both_same)
+    self.plot_pie(num_ole_rated_better, num_cognos_rated_better, num_both_same)
+    print "MAP (OLE): ", str(sum(map_ole)/len(map_ole))
+    print "MAP (Cognos): ", str(sum(map_cognos)/len(map_cognos))
+    self.plot_map_compare(sum(map_ole)/len(map_ole),
+                          sum(map_cognos)/len(map_cognos))
     
   def plot_precision_at_k(self, title, prec_ole, prec_cognos, k):
     fig = plt.figure()
@@ -324,6 +358,41 @@ class Precision:
     ax.set_xticks(range(len_x))
     ax.set_ylabel("Precision at " + str(k))
     plt.title(title)
+    plt.show()
+  
+  def plot_prec_recall(self, title, prec_ole, rec_ole, prec_cognos, rec_cognos):
+    fig = plt.figure()
+    ax = fig.add_subplot(1,1,1)
+    ax.plot(rec_ole, prec_ole, color="red", linestyle="solid", marker="o")
+    ax.plot(rec_cognos, prec_cognos, color="green", linestyle="solid", marker="o")
+    ax.set_ylabel("Precision")
+    ax.set_xlabel("Recall")
+    plt.title(title)
+    plt.show()
+  
+  def plot_map_compare(self, map_ole, map_cognos):
+    fig = plt.figure()
+    ax = fig.add_subplot(1,1,1)
+    Y = [map_ole, map_cognos]
+    labels = ["OLE", "Cognos"]
+    margin = 0.5
+    X = arange(len(Y))+margin
+    ax.bar(X, Y, 0.15, color='g')
+    ax.set_ylabel("Mean Average Precision")
+    ax.set_title("Mean Average Precision (OLE vs Cognos)")
+    ax.set_xticks(X+(0.15/2))
+    ax.set_xticklabels(labels)
+    plt.show()
+  
+  def plot_pie(self, num_ole, num_cognos, num_both):
+    fig = plt.figure()
+    ax = fig.add_subplot(1,1,1)
+    total = float(num_ole + num_cognos + num_both)
+    Y = [num_ole/total, num_cognos/total, num_both/total]
+    ax.pie(Y, explode=None, labels=["OLE", "Cognos", "Both"],
+           colors=("#E01B5D", "#1B8EE0", "#E0A21B"),
+           autopct=None, pctdistance=0.6, shadow=False,
+           labeldistance=1.1)
     plt.show()
 
 def main_entropy():
@@ -347,7 +416,8 @@ def main_entropy():
 
 def main_precision():
   prec = Precision()
-  prec.evaluate_precision_at_k(k=20)
+  #prec.evaluate_precision_at_k(plot=False)
+  prec.evaluate_precision_at_k()
 
 if __name__ == "__main__":
   #main_entropy()

@@ -11,7 +11,7 @@ import operator
 #from sklearn.feature_extraction.text import TfidfVectorizer
 from pymongo import Connection
 from sklearn.cluster import KMeans
-from settings import f_local_tweets, f_local_tweets_filtered, f_tweet_texts, local_clusters_folder, lda, spock_local_base_dir, f_geo_distrib
+from settings import f_local_tweets, f_local_tweets_filtered, f_tweet_texts, local_clusters_folder, lda, spock_local_base_dir, f_geo_distrib, spock_clusters_folder
 from utilities import geo
 from nltk.corpus import stopwords
 from math import log
@@ -206,6 +206,34 @@ class LocationTweetsAnalysis:
 					maxprob = probs[i]
 					topic = i
 			f2 = open(cluster_outfolder + 'cluster' + str(topic), 'a')
+			f2.write(obj)
+			f2.close()
+		f1.close()
+		f.close()
+	
+	@staticmethod
+	def alternate_cluster_assignment_lda(model_dir, objfile, cluster_outfolder, k=20):
+		"""
+		assigning a tweet to two topic clusters (top two probability)
+		"""
+		f = open(model_dir+'model-final.theta', 'r')
+		f1 = open(objfile, 'r')
+		for l in f:
+			probs = l.split()
+			obj = f1.readline()
+			probs = [float(x) for x in probs]
+			topic = -1
+			maxprob = -1
+			secondtopic = -1
+			for i in range(len(probs)):
+				if probs[i] > maxprob:
+					secondtopic = topic
+					maxprob = probs[i]
+					topic = i
+			f2 = open(cluster_outfolder + 'cluster' + str(topic), 'a')
+			f2.write(obj)
+			f2.close()
+			f2 = open(cluster_outfolder + 'cluster' + str(secondtopic), 'a')
 			f2.write(obj)
 			f2.close()
 		f1.close()
