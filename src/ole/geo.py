@@ -3,6 +3,7 @@
 Created on Feb 23, 2013
 @author: vandana
 Location coverage request handler
+CAN BE DELETED, if the distributions are nailed down...
 '''
 from bottle import run, Bottle
 from settings import geo_distrib_file
