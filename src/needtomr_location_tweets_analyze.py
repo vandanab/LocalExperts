@@ -6,7 +6,6 @@ import cjson
 import re
 import nltk
 import subprocess
-import operator
 #from sklearn.feature_extraction.text import Vectorizer, CountVectorizer
 #from sklearn.feature_extraction.text import TfidfVectorizer
 from pymongo import Connection
@@ -193,7 +192,7 @@ class LocationTweetsAnalysis:
 		f.write(str(len(lines)) + '\n')
 		f.writelines(lines)
 		f.close()
-		subprocess.call([lda, '-est', '-ntopics', str(k), '-twords', str(twords), '-savestep', str(5000), '-dfile', d+infile, '-niters', str(7000)])
+		subprocess.call([lda, '-est', '-ntopics', str(k), '-twords', str(twords), '-savestep', str(5000), '-dfile', d+infile, '-niters', str(5000)])
 		f = open(d+'model-final.theta', 'r')
 		f1 = open(d+objfile, 'r')
 		for l in f:
@@ -346,7 +345,11 @@ def main():
 	#LocationTweetsAnalysis.get_tweettexts_en_from_processed_file(f_tweet_texts+'.full.0', f_tweet_texts)
 	#LocationTweetsAnalysis.find_category_clusters_lda(spock_local_base_dir%'local_tweets', 'tweets_text', 'tweets_text.full', local_clusters_folder+'v-final/', k=50)
 	#LocationTweetsAnalysis.find_category_clusters_lda(spock_local_base_dir%'local_tweets', 'tweets_text_top_locs', 'tweets_text_top_locs.full', spock_clusters_folder+'v-top/', k=50)
-	LocationTweetsAnalysis.find_category_clusters_lda(spock_local_base_dir%'local_tweets', 'tweets_text_ner_locs', 'tweets_text_ner_locs.full', spock_clusters_folder+'v-ner/', k=50)
+	#LocationTweetsAnalysis.find_category_clusters_lda(spock_local_base_dir%'local_tweets', 'tweets_text_ner_locs', 'tweets_text_ner_locs.full', spock_clusters_folder+'v-ner/', k=50)
+	
+	#diving into hierarchical lda
+	LocationTweetsAnalysis.find_category_clusters_lda(spock_local_base_dir%'local_tweets', 'cluster15_tweets_text', 'cluster15', spock_clusters_folder+'v-ner/clusters/', k=30)
+	
 
 	#where can analysis
 	#LocationTweetsAnalysis.get_wherecan_tweets(f_local_tweets_filtered, 'wherecan.txt')
