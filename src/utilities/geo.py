@@ -84,11 +84,12 @@ class LocationInfo:
     it = self.location_db[self.collection].find()
     for i in it:
       self.in_db_locations[i["_id"]] = i
+    self.resolve_locations_file = "get_coordinates_later.txt"
   
   def get(self, location, try_geocoder=False):
     location = location.lower()
     for i in self.in_db_locations:
-      if i in location:
+      if i == location:
         return (self.in_db_locations[i]['lat'], self.in_db_locations[i]['lng'])
     if try_geocoder:
       results = get_coordinates_gc(location)
@@ -96,6 +97,10 @@ class LocationInfo:
         lat, lng = results[0], results[1]
         self.add(location, {'name': location, 'lat': lat, 'lng': lng})
         return (lat, lng)
+    else:
+      f = open(self.resolve_locations_file, "a")
+      f.write(location.encode("ascii", "ignore")+"\n")
+      f.close()
     return (None, None)
   
   def add(self, name, location_info):

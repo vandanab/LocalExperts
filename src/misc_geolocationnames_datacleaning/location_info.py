@@ -19,6 +19,9 @@ def update(infile, db_name, coll_name):
   count = 0
   for l in locations:
 		try:
+			if count <= 70:
+				count += 1
+				continue
 			results = g.geocode(l)
 			count += 1
 			print count
@@ -29,15 +32,16 @@ def update(infile, db_name, coll_name):
 				is_present = False
 				for i in it:
 					is_present = True
-					if math.fabs(i['lat'] - lat) >= 1 or math.fabs(i['lng'] - lng) >= 1:
+					#if math.fabs(i['lat'] - lat) >= 1 or math.fabs(i['lng'] - lng) >= 1:
+					if math.floor(i['lat']) != math.floor(lat) or math.floor(i['lng']) != math.floor(lng):
 						print l
 						print "lat: ", i['lat'], " lng: ", i['lng'], " ", i['fqn']
 						print "geocoder: lat: ", lat, " lng: ", lng
-						print "Choose geocoder value (y/n): "
-						ch = raw_input()
-						if ch == "y":
-							db[coll_name].update({'_id': l},
-                                   {'$set': {'lat': lat, 'lng': lng, 'fqn': fqn}})
+						#print "Choose geocoder value (y/n): "
+						#ch = raw_input()
+						#if ch == "y":
+						db[coll_name].update({'_id': l},
+																 {'$set': {'lat': lat, 'lng': lng, 'fqn': fqn}})
 				if not is_present:
 					db[coll_name].insert({'_id': l, 'lat': lat, 'lng': lng, 'fqn': fqn})
 			time.sleep(20)

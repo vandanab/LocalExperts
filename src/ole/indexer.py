@@ -8,12 +8,13 @@ The indexer for the Ole search engine.
 from lucene import SimpleFSDirectory, File, Document, Field, \
     StandardAnalyzer, IndexWriter, Version, PerFieldAnalyzerWrapper
 from settings import location_index_store_dir, usermap_index_store_dir, \
-                      dir_user_location_map#, user_index_store_dir
+                      dir_user_location_map, topic_index_store_dir#, user_index_store_dir
 from pymongo import Connection, ASCENDING
 from lucene_ext import UnderscoreSeparatorAnalyzer
 import cjson
 import lucene
 import os
+import sys
 import time
 
 #import threading, signal
@@ -86,6 +87,53 @@ class Indexer(object):
     # optimize for fast search and commit the changes
     self.writer.optimize()
     self.writer.commit()
+
+class TopicIndexer(Indexer):
+  def __init__(self, root, writer, directoryToWalk):
+    super(TopicIndexer, self).__init__(root, writer, directoryToWalk)
+  
+  def indexDocs(self):
+    #from user_location_map
+    for root, _, filenames in os.walk(self.directory):
+      for filename in filenames:
+        try:
+          path = os.path.join(root, filename)
+          print path
+          f = open(path, 'r')
+          # every line in the file is a user_location_map entry
+          for line in f:
+            data = cjson.decode(line)
+            doc = Document()
+            tw_texts = []
+            num_tweets = {}
+            total_num_tweets = 0.0
+            for i in data['locations']:
+              tweets = [x['tx'] for x in i['tweets']]
+              num_tweets[i['name']] = len(i['tweets'])
+              tw_texts.extend(tweets)
+              total_num_tweets += len(tweets)
+            #tweets indexed as part of the UserMapIndexer
+            doc.add(Field("text", " ".join(tw_texts), Field.Store.NO,
+                        Field.Index.ANALYZED))
+            doc.add(Field("num_tweets", cjson.encode(num_tweets),
+                          Field.Store.YES,
+                          Field.Index.NO))
+            doc.add(Field("user", data['user'], Field.Store.YES,
+                          Field.Index.NO))
+            doc.setBoost(total_num_tweets)
+            self.writer.addDocument(doc)
+          f.close()
+        except Exception, e:
+          print "Failed in indexLocations:", e
+          print sys.exc_info()[0]
+        #reader = writer.getReader()
+        #addedDoc = reader.document(0)
+        #print addedDoc
+        #time.sleep(20)
+
+    # optimize for fast search and commit the changes
+    self.writer.optimize()
+    self.writer.commit()
   
 class LocationIndexer(Indexer):
   def __init__(self, root, writer, directoryToWalk):
@@ -105,21 +153,25 @@ class LocationIndexer(Indexer):
             doc = Document()
             locations = [x['name'] for x in data['locations']]
             num_tweets = {}
+            total_num_tweets = 0.0
             for i in data['locations']:
               num_tweets[i['name']] = len(i['tweets'])
+              total_num_tweets += num_tweets[i['name']]
             #tweets indexed as part of the UserMapIndexer
-            doc.add(Field("loc", " ".join(locations),
-                          Field.Store.YES,
+            doc.add(Field("loc", "_".join(locations),
+                          Field.Store.NO,
                           Field.Index.ANALYZED))
             doc.add(Field("num_tweets", cjson.encode(num_tweets),
                           Field.Store.YES,
                           Field.Index.NO))
             doc.add(Field("user", data['user'], Field.Store.YES,
                           Field.Index.NO))
+            doc.setBoost(total_num_tweets/len(data['locations']))
             self.writer.addDocument(doc)
           f.close()
         except Exception, e:
           print "Failed in indexLocations:", e
+          print sys.exc_info()[0]
         #reader = writer.getReader()
         #addedDoc = reader.document(0)
         #print addedDoc
@@ -384,6 +436,7 @@ if __name__ == '__main__':
   """
   #location indexer
   LOCATION_INDEX_STORE_DIR = location_index_store_dir
+  print location_index_store_dir
   location_index_dir = createIndexDir(LOCATION_INDEX_STORE_DIR)
   # we will need a writer
   writer = IndexWriter(location_index_dir, analyzer, True,
@@ -394,7 +447,7 @@ if __name__ == '__main__':
   location_indexer.run()
   writer.close()
   """
- 
+  """
   #user_location_map indexer
   USERMAP_INDEX_STORE_DIR = usermap_index_store_dir
   usermap_index_dir = createIndexDir(USERMAP_INDEX_STORE_DIR)
@@ -406,7 +459,7 @@ if __name__ == '__main__':
   usermap_indexer = UserMapIndexer(USERMAP_INDEX_STORE_DIR, writer, directoryToWalk)
   usermap_indexer.run()
   writer.close()
-
+  """
   
   """
   #user indexer
@@ -421,6 +474,19 @@ if __name__ == '__main__':
   user_indexer.run()
   writer.close()
   """
+
+  #user indexer
+  TOPIC_INDEX_STORE_DIR = topic_index_store_dir
+  topic_index_dir = createIndexDir(TOPIC_INDEX_STORE_DIR)
+  # we will need a writer
+  writer = IndexWriter(topic_index_dir, analyzer, True,
+                       IndexWriter.MaxFieldLength.LIMITED)
+  writer.setMaxFieldLength(1048576)
+  # and start the indexer
+  topic_indexer = TopicIndexer(TOPIC_INDEX_STORE_DIR, writer, directoryToWalk)
+  topic_indexer.run()
+  writer.close()
+  
   #users_to_db(directoryToWalk)
   #ner_locations_to_db(directoryToWalk)
   

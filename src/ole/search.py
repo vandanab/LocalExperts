@@ -16,7 +16,8 @@ from lucene import Version, QueryParser, IndexSearcher, PerFieldAnalyzerWrapper,
                     KeywordAnalyzer
 from lucene import SimpleFSDirectory, StandardAnalyzer, File, WhitespaceAnalyzer
 from online import Expert, OnlineUser, UserProfiles
-from settings import location_index_store_dir, usermap_index_store_dir, user_index_store_dir
+from settings import location_index_store_dir, usermap_index_store_dir, \
+                    user_index_store_dir, topic_index_store_dir
 from utilities import geo
 #from src.utilities import geo
 from pygeocoder import Geocoder, GeocoderError
@@ -35,6 +36,7 @@ if __name__ == "__main__":
   location_searcher_ = None
   usermap_searcher_ = None
   user_searcher_ = None
+  topic_searcher_ = None
   LI = geo.LocationInfo()
   DEBUG = True
   #all the locations in our dataset
@@ -45,6 +47,10 @@ if __name__ == "__main__":
   #defaults
   DEFAULT_NUM_RESULTS = 10
   
+  #caching optimization
+  LAST_QUERY = ""
+  LAST_RESPONSE = ""
+
   app = Bottle()
 
 
@@ -53,12 +59,13 @@ Local Experts (for a location, across topics)
 """
 @app.route('/search/<query>')
 def search(query=None):
-  global location_searcher_
-
+  global location_searcher_, LAST_QUERY, LAST_RESPONSE
   if DEBUG:
     print "Raw Query: ", query
 
-  analyzer = StandardAnalyzer(Version.LUCENE_CURRENT)
+  analyzer = PerFieldAnalyzerWrapper(StandardAnalyzer(Version.LUCENE_CURRENT))
+  analyzer.addAnalyzer("loc", KeywordAnalyzer(Version.LUCENE_CURRENT))
+  #analyzer = StandardAnalyzer(Version.LUCENE_CURRENT)
   parsed_query = process_query(query, "l")
   if parsed_query is None:
     return ""
@@ -73,7 +80,7 @@ def search(query=None):
   parsed_query["locations"] = locations
 
   if len(locations.keys()) == 1:
-    real_query = real_query + parsed_query["location"]
+    real_query = real_query + "\"" + parsed_query["location"] + "\""
   else:
     """
     locations_query = []
@@ -81,13 +88,16 @@ def search(query=None):
       locations_query.append(l + "^" + str(locations[l]["dwt"]))
     real_query = real_query + " OR ".join(locations_query)
     """
-    real_query = real_query + " OR ".join([l for l in locations])
+    real_query = real_query + " OR ".join(["\"" + l + "\"" for l in locations])
 
+  parsed_query["real_query"] = real_query
+  
   if DEBUG:
     print "Lucene Query: ", real_query
 
-  parsed_query["real_query"] = real_query
-
+  if LAST_QUERY == real_query:
+    return LAST_RESPONSE
+  
   #parse query using lucene parser and get docs
   p_query = QueryParser(Version.LUCENE_CURRENT, "loc", analyzer).parse(real_query)
   scoreDocs = location_searcher_.search(p_query, 500).scoreDocs
@@ -99,11 +109,15 @@ def search(query=None):
 
   for i in rankedDocs:
     if parsed_query["profile"] == "yes":
-      experts.append({"u": i["user"], "d": i["details"], "p": i["profile"], "t": i["tweets"]})
+      experts.append({"u": i["user"], "d": i["details"],
+                      "p": i["profile"], "t": i["tweets"]})
     else:
       experts.append({"u": i["user"], "d": i["details"]})
 
   response = {"sid": str(uuid.uuid1()), "es": experts}
+  
+  if "with_request" in parsed_query and parsed_query["with_request"] == "yes":
+    response = {"q": parsed_query, "e": experts}
 
   if "user_study" in parsed_query and parsed_query["user_study"] == "yes":
     #write session to db
@@ -113,7 +127,11 @@ def search(query=None):
     db = conn["ole_evaluation"]
     db["user_response"].insert(session)
 
-  return cjson.encode(response)
+  LAST_QUERY = real_query
+  LAST_RESPONSE = cjson.encode(response)
+  
+  #return cjson.encode(response)
+  return LAST_RESPONSE
 
 
 """
@@ -121,7 +139,7 @@ Local Experts for a location given a set of topics
 """
 @app.route('/textsearch/<query>')
 def textsearch(query=None):
-  global usermap_searcher_
+  global usermap_searcher_, LAST_QUERY, LAST_RESPONSE 
 
   if DEBUG:
     print "Raw Query: ", query
@@ -164,6 +182,10 @@ def textsearch(query=None):
 
   if DEBUG:
     print "Real Query: ", real_query
+
+  if LAST_QUERY == real_query:
+    return LAST_RESPONSE
+
   #parse query using lucene parser and get docs
   p_query = QueryParser(Version.LUCENE_CURRENT, "text", analyzer).parse(real_query)
   print str(p_query)
@@ -176,8 +198,8 @@ def textsearch(query=None):
 
   for i in rankedDocs:
     if parsed_query["profile"] == "yes":
-      experts.append({"u": i["user"], "d": i["details"], "p": i["profile"], "t": i["tweets"]})
-      #experts.append({"u": i["user"], "d": i["details"], "t": i["tweets"]})
+      experts.append({"u": i["user"], "d": i["details"],
+                      "p": i["profile"], "t": i["tweets"]})
     else:
       experts.append({"u": i["user"], "d": i["details"]})
 
@@ -194,7 +216,12 @@ def textsearch(query=None):
     db = conn["ole_evaluation"]
     db["user_response"].insert(session)
   #print response
-  return cjson.encode(response)
+
+  LAST_QUERY = real_query
+  LAST_RESPONSE = cjson.encode(response)
+
+  #return cjson.encode(response)
+  return LAST_RESPONSE
 
 
 @app.route('/submiteval/<evaluation>')
@@ -297,6 +324,68 @@ def cognos(query):
   return ''
 
 
+@app.route('/topicsearch/<query>')
+def topicsearch(query):
+  global topic_searcher_, LAST_QUERY, LAST_RESPONSE 
+
+  if DEBUG:
+    print "Raw Query: ", query
+
+  analyzer = PerFieldAnalyzerWrapper(StandardAnalyzer(Version.LUCENE_CURRENT))
+  analyzer.addAnalyzer("loc", KeywordAnalyzer(Version.LUCENE_CURRENT))
+  #analyzer = StandardAnalyzer(Version.LUCENE_CURRENT)
+  parsed_query = process_query(query)
+  if parsed_query is None:
+    return ""
+
+  #create query for lucene
+  real_query = text_query = parsed_query["text_query"]
+  parsed_query["real_query"] = real_query
+
+  if DEBUG:
+    print "Real Query: ", real_query
+
+  if LAST_QUERY == real_query:
+    return LAST_RESPONSE
+
+  #parse query using lucene parser and get docs
+  p_query = QueryParser(Version.LUCENE_CURRENT, "text", analyzer).parse(real_query)
+  print str(p_query)
+  scoreDocs = topic_searcher_.search(p_query, 500).scoreDocs
+  print "%s total matching documents." % len(scoreDocs)
+ 
+  #rank results
+  experts = []
+  rankedDocs = rankDocs_topic(parsed_query, topic_searcher_, scoreDocs)
+
+  for i in rankedDocs:
+    if parsed_query["profile"] == "yes":
+      experts.append({"u": i["user"], "d": i["details"],
+                      "p": i["profile"]})
+    else:
+      experts.append({"u": i["user"], "d": i["details"]})
+
+  response = {"sid": str(uuid.uuid1()), "es": experts}
+  
+  if "with_request" in parsed_query and parsed_query["with_request"] == "yes":
+    response = {"q": parsed_query, "e": experts}
+
+  if "user_study" in parsed_query and parsed_query["user_study"] == "yes":
+    #write session to db
+    session = {"q": text_query, "l": parsed_query["location"],
+              "_id": response["sid"], "ur": {}}
+    conn = Connection("wheezy.cs.tamu.edu", 27017)
+    db = conn["ole_evaluation"]
+    db["user_response"].insert(session)
+  #print response
+
+  LAST_QUERY = real_query
+  LAST_RESPONSE = cjson.encode(response)
+
+  #return cjson.encode(response)
+  return LAST_RESPONSE
+
+
 def rankDocs(query, searcher_, scoreDocs):
   locations = query["locations"]
   include_profile = query["profile"]
@@ -368,13 +457,84 @@ def rankDocs(query, searcher_, scoreDocs):
     rankedDocs.append(rankedDoc)
 
   if include_profile == "yes":
-    rankedDocs = update_profile_information(users, rankedDocs, locations, query_location, query["terms"])
+    if query["query_type"] == "t":
+      rankedDocs = update_profile_information(users, rankedDocs, locations,
+                                              query_location, query["terms"],
+                                              query["rgeo"])
+    else:
+      rankedDocs = update_profile_information(users, rankedDocs, locations,
+                                              query_location, [],
+                                              query["rgeo"])
 
   for i in rankedDocs[:]:
     if not i["tweets"] and i["details"]["term_des_count"] == 0:
       rankedDocs.remove(i)
 
   rankedDocs = compute_doc_scores(rankedDocs, locations)
+
+  if DEBUG:
+    print [x["user"] for x in rankedDocs]
+  #top 20
+  #return rankedDocs[:20]
+  #top 15
+  num_results = DEFAULT_NUM_RESULTS
+  if "num_results" in query:
+    num_results = query["num_results"]
+  return rankedDocs[:num_results]
+
+def rankDocs_topic(query, searcher_, scoreDocs):
+  include_profile = query["profile"]
+  rankedDocs = []
+  users = []
+  count = 0
+  conn = Connection("wheezy.cs.tamu.edu", 27017)
+  db = conn["local_expert_tweets"]
+  for scoreDoc in scoreDocs:
+    count += 1
+    rankedDoc = {}
+    doc = searcher_.doc(scoreDoc.doc)
+    rankedDoc["user"] = doc.get("user").strip("@")
+    rankedDoc["details"] = {}
+    rankedDoc["profile"] = {}
+    rankedDoc["details"]["ls"] = float(scoreDoc.score) #lucene score
+    
+    num_tweets = cjson.decode(doc.get("num_tweets"))
+    #total no. of tweets for the locations in query
+    rankedDoc["details"]["tnm"] = 0
+    for i in num_tweets:
+      rankedDoc["details"]["tnm"] += num_tweets[i]
+
+    tweets = {}
+    def filter_tweets(query_terms, tweet):
+      for i in query_terms:
+        if i in tweet.lower():
+          return True
+      return False
+    it = db["user_location_tweets"].find({"sn": rankedDoc["user"]})
+    for x in it:
+      tweets = [json.dumps(item) for item in x["t"] if filter_tweets(query["terms"], item)]
+
+    #drop documents which do not have any endorsing tweets
+    """
+    if not tweets:
+      continue
+    """
+      
+    rankedDoc["tweets"] = tweets
+    #add rankedDoc to the rankedDocs
+    users.append(rankedDoc["user"])
+    rankedDocs.append(rankedDoc)
+
+  if include_profile == "yes":
+    rankedDocs = update_profile_information(users, rankedDocs, [],
+                                            None, query["terms"],
+                                            query["rgeo"])
+
+  for i in rankedDocs[:]:
+    if not i["tweets"] and i["details"]["term_des_count"] == 0:
+      rankedDocs.remove(i)
+
+  rankedDocs = compute_doc_scores_topic(rankedDocs)
 
   if DEBUG:
     print [x["user"] for x in rankedDocs]
@@ -398,6 +558,16 @@ def compute_doc_scores(docs, locations):
       doc["details"]["lsts"] = compute_lsnts(doc["tweets"], locations)
       if "ner_loc_tweets" in doc:
         doc["details"]["ner_lsts"] = compute_lsnts(doc["ner_loc_tweets"], locations)
+      doc["details"]["s"] = get_score(doc)
+    else:
+      doc["details"]["s"] = get_score_basic(doc)
+  rankedDocs = sorted(docs, key=lambda k: k["details"]["s"], reverse=True)
+  return rankedDocs
+
+def compute_doc_scores_topic(docs):
+  for doc in docs:
+    if "tweets" in doc:
+      doc["details"]["lsts"] = len(doc["tweets"])
       doc["details"]["s"] = get_score(doc)
     else:
       doc["details"]["s"] = get_score_basic(doc)
@@ -451,7 +621,8 @@ Get nearby locations, given a location and epsilon, from OLE's set of locations
 def get_nearby_locations(location, epsilon):
   locations = {location:{"d": 0, "dwt": 1.0, "lat": None, "lng": None}}
   in_db_locations = LI.in_db_locations
-  (slat, slng) = LI.get(location, True)
+  #(slat, slng) = LI.get(location, True)
+  (slat, slng) = LI.get(location, False)
   if slat is not None and slng is not None:
     locations[location]["lat"] = slat
     locations[location]["lng"] = slng
@@ -493,6 +664,7 @@ def process_query(query, query_type="t"):
     return None
   query_obj = {}
   query_obj["query_type"] = query_type
+  query_obj["rgeo"] = True
   query = query.replace("+", " ")
   query_parts = query.split("&")
   for i in query_parts:
@@ -528,12 +700,16 @@ def process_query(query, query_type="t"):
       query_obj["with_request"] = query_part[1]
     elif (query_part[0] == "n"):
       query_obj["num_results"] = int(query_part[1])
+    elif (query_part[0] == "rg"):
+      query_obj["rgeo"] = True if query_part[1] == "yes" else False
   return query_obj
 
 """
 populate the search result with users profile information
 """
-def update_profile_information(users, docs, locations, query_location, query_terms):
+def update_profile_information(users, docs, locations,
+                               query_location, query_terms,
+                               reverse_geocode=True):
   unique_users = set()
   f = open("no_profiles.txt", "a+")
   no_profile_accounts = [x.strip() for x in f.readlines()]
@@ -575,7 +751,7 @@ def update_profile_information(users, docs, locations, query_location, query_ter
     """
     
     rd["details"]["h"] = 0
-    rd["profile"] = {}
+    rd["profile"] = {"hl": ""}
     if profiles[rd["user"]]["location"] != None:
       rd["profile"]["hl"] = cjson.encode(profiles[rd["user"]]["location"])
       loc = profiles[rd["user"]]["location"].lower()
@@ -588,8 +764,9 @@ def update_profile_information(users, docs, locations, query_location, query_ter
         if "location_coords" in profiles[rd["user"]]:
           coords = profiles[rd["user"]]["location_coords"]
         else:
-          coords = LI.get(loc, True)
-        if coords[0] is not None and coords[1] is not None:
+          #coords = LI.get(loc, True)
+          coords = LI.get(loc, False) #not invoking geocoder because of query limits
+        if coords[0] is not None and coords[1] is not None and query_location is not None:
           wdl = get_weighted_distance_location(query_location[1]["lat"],
                                                query_location[1]["lng"],
                                                coords[0],
@@ -601,14 +778,15 @@ def update_profile_information(users, docs, locations, query_location, query_ter
       rd["profile"]["sts"] = {}
       if "geo" in profiles[rd["user"]]["status"] and profiles[rd["user"]]["status"]["geo"] != None:
         geo_field = profiles[rd["user"]]["status"]["geo"]
-        try:
-          geo_results = Geocoder.reverse_geocode(float(geo_field["coordinates"][0]),
-                                               float(geo_field["coordinates"][1]))
-          if geo_results:
-            rd["profile"]["cl"] = str(geo_results[0])
-            rd["profile"]["sts"]["geo"] = str(geo_results[0])
-        except GeocoderError as e:
-          print str(e)
+        if reverse_geocode:
+          try:
+            geo_results = Geocoder.reverse_geocode(float(geo_field["coordinates"][0]),
+                                                 float(geo_field["coordinates"][1]))
+            if geo_results:
+              rd["profile"]["cl"] = str(geo_results[0])
+              rd["profile"]["sts"]["geo"] = str(geo_results[0])
+          except GeocoderError as e:
+            print str(e)
       rd["profile"]["sts"]["text"] = json.dumps(profiles[rd["user"]]["status"]["text"])
       rd["profile"]["sts"]["created_at"] = json.dumps(profiles[rd["user"]]["status"]["created_at"])
     rd["profile"]["foc"] = profiles[rd["user"]]["followers_count"]
@@ -625,13 +803,14 @@ def update_profile_information(users, docs, locations, query_location, query_ter
     
     if not rd['tweets'] and rd["details"]["term_des_count"] == 0:
       docs.remove(rd)
+      continue
     
-    #if "profile_image_url" in profiles[rd["user"]]:
-      #rd["profile"]["pic"] = json.dumps(profiles[rd["user"]]["profile_image_url"])
-    #else:
-    url = UserProfiles.get_profile_image_url(rd["user"])
-    if url:
-      rd["profile"]["pic"] = url
+    if "profile_image_url" in profiles[rd["user"]]:
+      rd["profile"]["pic"] = json.dumps(profiles[rd["user"]]["profile_image_url"])
+    else:
+      url = UserProfiles.get_profile_image_url(rd["user"])
+      if url:
+        rd["profile"]["pic"] = url
   f.close()
   return docs
 
@@ -671,6 +850,7 @@ if __name__ == "__main__":
   location_index_dir = SimpleFSDirectory(File(location_index_store_dir))
   usermap_index_dir = SimpleFSDirectory(File(usermap_index_store_dir))
   user_index_dir = SimpleFSDirectory(File(user_index_store_dir))
+  topic_index_dir = SimpleFSDirectory(File(topic_index_store_dir))
   
   # For now I just use the StandardAnalyzer, but you can change this
   #analyzer = StandardAnalyzer(Version.LUCENE_CURRENT)
@@ -678,6 +858,7 @@ if __name__ == "__main__":
   location_searcher_ = IndexSearcher(location_index_dir)
   usermap_searcher_ = IndexSearcher(usermap_index_dir)
   user_searcher_ = IndexSearcher(user_index_dir)
+  topic_searcher_ = IndexSearcher(topic_index_dir)
   
   # start up the terminal query Interface
   #run(searcher, analyzer)

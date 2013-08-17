@@ -15,7 +15,9 @@ import sys
 sys.path.append('/home/vandana/workspace/LocalExperts/src/')
 from utilities import geo
 #from src.utilities import geo
-
+import ata
+from settings import APP_CONSUMER_KEY, APP_CONSUMER_SECRET, \
+                     ACCESS_TOKEN, ACCESS_SECRET
 
 class UserProfiles:
   CONN = Connection('wheezy.cs.tamu.edu', 27017)
@@ -45,10 +47,9 @@ class UserProfiles:
     for i in it:
       return ({i['_id']: i})
     return None
-	
+
   @staticmethod
   def get_profile_image_url(user):
-    http = httplib2.Http()
     url = 'https://api.twitter.com/1/users/profile_image?screen_name=' + user + \
            '&size=bigger'
     UserProfiles.DB['user_profiles'].update({'_id': user},
@@ -61,12 +62,12 @@ class OnlineUser:
   USER_SEARCH_URL = 'http://search.twitter.com/search.json?rpp=2&' + \
       'q={0}&page=1&include_entities=true&result_type=mixed'
   
-  USERS_SEARCH_URL = 'https://api.twitter.com/1/users/lookup.json?' + \
-      'screen_name={0}&include_entities=true'
+  USERS_LOOKUP_BASE_URL = 'https://api.twitter.com/1.1/users/lookup.json'
+  USERS_QUERY =  'screen_name={0}&include_entities=true'
   
   @staticmethod
   def get_location_time_info(users):
-    http = httplib2.Http()
+    access_twitter_api = ata.Main(APP_CONSUMER_KEY, APP_CONSUMER_SECRET)
     users = list(set(users))
     l = len(users)/100
     r = len(users)%100
@@ -76,25 +77,23 @@ class OnlineUser:
     profiles = {}
     for i in range(l):
       q = ','.join([x.strip('@') for x in users[p:(i+1)*100]])
-      url = OnlineUser.USERS_SEARCH_URL.format(urllib.quote_plus(q))
-      response, content = http.request(url, 'GET')
-      if response['status'] == '200':
+      params = OnlineUser.USERS_QUERY.format(q)
+      content = access_twitter_api.request(OnlineUser.USERS_LOOKUP_BASE_URL,
+                                           params,
+                                           ACCESS_TOKEN, ACCESS_SECRET,
+                                           sleep_rate_limit_exhausted="False")
+      if content:
         content = cjson.decode(content)
         for profile in content:
           profiles[profile['screen_name']] = OnlineUser.get_short_profile(profile)
           profile['_id'] = profile['screen_name']
           OnlineUser.DB['user_profiles'].insert(profile)
-      else:	
-        print 'REQUEST FAILED: ', url
-        print response
-        if response['status'] == 400: #ratelimit exceeded
-          break
       p = (i+1)*100
     return profiles
   
   @staticmethod
   def get_user_profiles(users):
-    http = httplib2.Http()
+    access_twitter_api = ata.Main(APP_CONSUMER_KEY, APP_CONSUMER_SECRET)
     users = list(set(users))
     l = len(users)/100
     r = len(users)%100
@@ -104,20 +103,20 @@ class OnlineUser:
     profiles = {}
     for i in range(l):
       q = ','.join([x.strip('@') for x in users[p:(i+1)*100]])
-      url = OnlineUser.USERS_SEARCH_URL.format(urllib.quote_plus(q))
+      params = OnlineUser.USERS_QUERY.format(q)
       try:
-        response, content = http.request(url, 'GET')
-        if response['status'] == '200':
+        content = access_twitter_api.request(OnlineUser.USERS_LOOKUP_BASE_URL,
+                                           params,
+                                           ACCESS_TOKEN, ACCESS_SECRET,
+                                           sleep_rate_limit_exhausted="False")
+        if content:
           content = cjson.decode(content)
           for profile in content:
             profiles[profile['screen_name']] = OnlineUser.get_short_profile(profile)
             profile['_id'] = profile['screen_name']
             OnlineUser.DB['user_profiles'].insert(profile)
         else:
-          print 'REQUEST FAILED: ', url
-          print response
-          if response['status'] == 400: #ratelimit exceeded
-            break
+          print 'REQUEST FAILED: ', access_twitter_api.request_params
       except:
         print sys.exc_info()[0]
       p = (i+1)*100
@@ -161,7 +160,8 @@ class OnlineUser:
         short_profile['status']['geo'] = profile['status']['geo']
     
     if short_profile['location']:
-      coords = UserProfiles.LI.get(short_profile['location'], True)
+      #coords = UserProfiles.LI.get(short_profile['location'], True)
+      coords = UserProfiles.LI.get(short_profile['location'], False)
       if coords[0] is not None and coords[1] is not None:
         short_profile['location_coords'] = coords 
     return short_profile
