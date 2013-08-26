@@ -6,7 +6,7 @@ Map reduce for tweets analysis
 from library.mrjobwrapper import runMRJob
 from settings import f_local_tweets, f_geo_distrib, f_tweet_texts, f_local_tweets_filtered, f_ulm
 from location_tweets_analyze import TweetsGeoAnalysis, TweetTexts, \
-                                    UsersByMentions#, TopicClusters
+                                    UsersByMentions, LocationsByMentions, LocationUserPairs#, TopicClusters
 import os
 
 class TweetsAnalysisMRJobRunner(object):
@@ -49,6 +49,32 @@ class TweetsAnalysisMRJobRunner(object):
              jobconf={'mapred.reduce.tasks':300, 'mapred.task.timeout': 86400000}
     )
   
+  @staticmethod
+  def locations_by_mentions(input_files):
+    mr_class = LocationsByMentions
+    output_file = os.path.expanduser('~/LocalExperts/data/results/%s/') % 'local_tweets' + 'locationuserpairs'
+    runMRJob(mr_class,
+             output_file,
+             input_files,
+             mrJobClassParams = {'job_id': 'as'},
+             # uncomment when running on local
+             #args = [],
+             jobconf={'mapred.reduce.tasks':300, 'mapred.task.timeout': 86400000}
+    )
+  
+  @staticmethod
+  def location_user_pairs(input_files):
+    mr_class = LocationUserPairs
+    output_file = os.path.expanduser('~/LocalExperts/data/results/%s/') % 'local_tweets' + 'locationsbymentions'
+    runMRJob(mr_class,
+             output_file,
+             input_files,
+             mrJobClassParams = {'job_id': 'as'},
+             # uncomment when running on local
+             #args = [],
+             jobconf={'mapred.reduce.tasks':300, 'mapred.task.timeout': 86400000}
+    )
+  
   """
   @staticmethod
   def topic_clusters_geo_division(input_files):
@@ -79,7 +105,9 @@ class TweetsAnalysisMRJobRunner(object):
     #TweetsAnalysisMRJobRunner.topic_clusters_geo_division(input_files)
     
     input_files.append(f_ulm)
-    TweetsAnalysisMRJobRunner.users_by_mentions(input_files)
+    #TweetsAnalysisMRJobRunner.users_by_mentions(input_files)
+    TweetsAnalysisMRJobRunner.locations_by_mentions(input_files)
+    #TweetsAnalysisMRJobRunner.location_user_pairs(input_files)
 
 if __name__ == '__main__':
   TweetsAnalysisMRJobRunner.run()
