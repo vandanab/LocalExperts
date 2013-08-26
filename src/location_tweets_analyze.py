@@ -131,7 +131,54 @@ class TopicClusters(ModifiedMRJob):
 		location_geo_following['mentions_from'] = list(geo_tags_from)
 		yield key, location_geo_following
 """
+class UsersByMentions(ModifiedMRJob):
+	DEFAULT_INPUT_PROTOCOL = 'raw_value'
+	
+	def __init__(self, *args, **kwargs):
+		super(UsersByMentions, self).__init__(*args, **kwargs)
+
+	def mapper(self, key, line):
+		data = cjson.decode(line)
+		count = 0
+		for x in data['locations']:
+			count += len(x["tweets"])
+		if count > 10:
+			yield data["user"], {"u": data["user"], "c": count}
+
+class LocationsByMentions(ModifiedMRJob):
+	DEFAULT_INPUT_PROTOCOL = 'raw_value'
+	
+	def __init__(self, *args, **kwargs):
+		super(LocationsByMentions, self).__init__(*args, **kwargs)
+
+	def mapper(self, key, line):
+		data = cjson.decode(line)
+		count = 0
+		for x in data['locations']:
+			count += len(x["tweets"])
+			yield data["name"], {"l": data["name"], "c": count}
+	
+	def reducer(self, key, values):
+		count = 0
+		for i in values:
+			count += i
+		yield key, count
+
+class LocationUserPairs(ModifiedMRJob):
+	DEFAULT_INPUT_PROTOCOL = 'raw_value'
+	
+	def __init__(self, *args, **kwargs):
+		super(LocationUserPairs, self).__init__(*args, **kwargs)
+
+	def mapper(self, key, line):
+		data = cjson.decode(line)
+		for x in data['locations']:
+			if len(x["tweets"]) > 50:
+				yield data["user"] + "_" + x["name"], {"l": x["name"],
+																							"u": data["user"], 
+																							"c": len(x["tweets"])}
 
 if __name__ == '__main__':
-	TweetsGeoAnalysis.run()
+	#TweetsGeoAnalysis.run()
 	#TweetTexts.run()
+	UsersByMentions.run()

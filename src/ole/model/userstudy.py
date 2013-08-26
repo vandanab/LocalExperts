@@ -136,6 +136,7 @@ class Evaluation:
   def __init__(self, queries, ole_input_dir, ole_result_files,
                cognos_input_dir, cognos_result_files, ole_lr_dir):
     self.queries_data, self.results = [], {"ole":[], "cognos":[]}
+    #self.queries_data, self.results = [], {"ole":[], "cognos":[], "ole_lr": []}
     for c in queries:
       tname = "".join(c["q"].split(" OR "))
       lname = "".join(c["l"].split())
@@ -146,6 +147,7 @@ class Evaluation:
         self.results["ole"].append(get_fields_from_csv_file(ole_input_dir+fn))
         self.results["cognos"].append(get_fields_from_csv_file(cognos_input_dir+\
                                                                fn_cognos))
+        #self.results["ole_lr"].append(get_fields_from_csv_file(ole_lr_dir+fn_cognos))
     self.get_results_by_ranking_model(ole_lr_dir)
   
   def get_results_by_ranking_model(self, ole_lr_dir):
@@ -186,6 +188,28 @@ class Evaluation:
       Evaluation.plot_compare_methods(results)
     #Evaluation.save_results_to_csv(results, "map_ndcg_results.csv")
     return results
+  
+  def relevance_judgments(self):
+    total_rel_judgments, total_rel = {}, {}
+    l = len(self.queries_data)
+    for i in range(l):
+      for m in self.results:
+        labels = []
+        if m == "ole_lr":
+          res = self.results[m][i]["predicted_result"]["shuffled_result"]["r"]
+          labels.extend(res)
+        else:
+          res = self.results[m][i]["local_global_012"]
+          labels.extend([float(x)+1 for x in res])
+        (num_rel_judgments, num_rel) = Measures.relevance_judgments(labels)
+        if m in total_rel_judgments:
+          total_rel_judgments[m] += num_rel_judgments
+          total_rel[m] += num_rel
+        else:
+          total_rel_judgments[m] = num_rel_judgments
+          total_rel[m] = num_rel
+    print "Total no. of relevance judgments: ", total_rel_judgments
+    print "Total no. of relevant replies: ", total_rel
   
   def get_entropy_expertness_correlation(self):
     base = "temp_entropy/"
@@ -306,6 +330,9 @@ class Evaluation:
         sum_ndcgs[method] += j["res"][method]["ndcg"]
     nr = len(results)
     for i in x_labels:
+      print i
+      print "MAP:", str(sum_avg_precs[i]/nr)
+      print "NDCG:", str(sum_ndcgs[i]/nr)
       Y1.append(sum_avg_precs[i]/nr)
       Y2.append(sum_ndcgs[i]/nr)
     print Y1, Y2
@@ -339,7 +366,17 @@ def write_new_result_to_csv(results, ole_lr_dir):
                res["lsts"][j], res["des"][j], res["ent"][j], res["r"][j]-1]
       csvwriter0.writerow(f_str)
     f0.close() 
-  
+
+def get_subset_from_file(queries_file):
+  f = open(queries_file, "r")
+  lines = f.readlines()
+  f.close()
+  queries = []
+  for l in lines:
+    i = l.split(",")
+    queries.append({"q": i[0], "l": i[1]})
+  return queries
+
 def main():
   (queries, results) = get_userstudy_queries()
   outfolder = os.path.expanduser("~/workspace/LocalExperts/data/goldset/userstudy/")
@@ -350,8 +387,11 @@ def main():
   dt.results_cognos(outfolder+"cognos/", queries, cognos_labels)
 
 def eval_main():
-  (queries, _) = get_userstudy_queries()
   base_dir = os.path.expanduser("~/workspace/LocalExperts/data/goldset/userstudy/")
+  (queries, _) = get_userstudy_queries()
+  #queries_file = base_dir + "queries.csv"
+  #queries = get_subset_from_file(queries_file)
+  
   ole_files, cognos_files = [], []
   for _,_, fs in os.walk(base_dir+"ole/"):
     ole_files.extend(fs)
@@ -360,7 +400,8 @@ def eval_main():
   ev = Evaluation(queries, base_dir+"ole/", ole_files,
                     base_dir+"cognos/", cognos_files, base_dir+"ole_lr/")
   #ev.get_map_and_ndcg()
-  ev.get_entropy_expertness_correlation()
+  #ev.get_entropy_expertness_correlation()
+  ev.relevance_judgments()
   
 if __name__ == "__main__":
   #main()

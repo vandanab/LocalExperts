@@ -76,10 +76,13 @@ class Rank:
                            "h": result["h_wt"],
                            "des": result["des_wt"],
                            "ent": result["entropy"],
-                           "r": [float(x)+1 for x in result["local_global_012"]],
                            "ls": []
                            }
                 }
+    if "local_global_012" in result:
+      data_obj["result"]["r"] = [float(x)+1 if x != "" else 1 for x in result["local_global_012"]]
+    else:
+      data_obj["result"]["r"] = [0]*10
     
     k = len(result["lsts"])
     for j in range(k):

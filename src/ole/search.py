@@ -45,7 +45,7 @@ if __name__ == "__main__":
   f.close()
   
   #defaults
-  DEFAULT_NUM_RESULTS = 10
+  DEFAULT_NUM_RESULTS = 20
   
   #caching optimization
   LAST_QUERY = ""
@@ -315,8 +315,9 @@ def cognos(query):
     soup = BeautifulSoup(content)
     search_results = soup.find(id='results')
     footer = soup.find('p', id='footer')
-    footer['class'] = 'footer'
-    footer['id'] = 'footer_c'
+    if footer:
+      footer['class'] = 'footer'
+      footer['id'] = 'footer_c'
     if "center" in search_results:
       search_results.center.replace_with('')
     #print str(search_results) + str(footer)

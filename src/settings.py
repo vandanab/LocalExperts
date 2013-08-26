@@ -52,6 +52,8 @@ f_tweet_texts = spock_local_base_dir % 'local_tweets' + 'tweets_text'
 #f_local_tweets_filtered = hdfs_input_folder1 % 'local_tweets' + 'tweets_for_analysis_modified'
 f_local_tweets_filtered = hdfs_input_folder1 % 'local_tweets' + 'tweets_for_analysis'
 
+f_ulm = hdfs_input_folder1 % 'local_tweets' + 'user_location_map'
+
 
 f_geo_distrib = localfs_output_base_dir % 'local_tweets' + 'geo_distrib.txt'
 #f_geo_distrib = spock_local_base_dir % 'local_tweets' + 'geo_distrib.txt'

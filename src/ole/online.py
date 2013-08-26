@@ -87,7 +87,9 @@ class OnlineUser:
         for profile in content:
           profiles[profile['screen_name']] = OnlineUser.get_short_profile(profile)
           profile['_id'] = profile['screen_name']
-          OnlineUser.DB['user_profiles'].insert(profile)
+          #OnlineUser.DB['user_profiles'].insert(profile)
+          OnlineUser.DB['user_profiles'].update({'_id': profile['_id']},
+                                                profile, upsert=True)
       p = (i+1)*100
     return profiles
   

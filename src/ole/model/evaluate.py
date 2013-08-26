@@ -165,6 +165,17 @@ class Measures:
       return 0.0
     print "ndcg: ", ndcg[-1]
     return ndcg[-1]
+  
+  @staticmethod
+  def relevance_judgments(results_rel_nonrel):
+    num_relevance_judgments, num_relevant = 0.0, 0.0
+    for j in results_rel_nonrel:
+      num_relevance_judgments += 1
+      if j > 1.0:
+        num_relevant += 1.0
+    #print "Number of Relevance Judgments: ", num_relevance_judgments
+    #print "Number of Relevant Results: ", num_relevant
+    return (num_relevance_judgments, num_relevant)
 
 class Experiment1:
   
@@ -262,19 +273,22 @@ def get_result_from_csv_file_localortopic(method, topic, location, fl):
   f.close()
   return result
 
-def get_fields_from_csv_file(fl):
+def get_fields_from_csv_file(fl, num_rows=20):
   f = open(fl, "r")
   csvreader = csv.reader(f)
   headers = []
   result = {}
   for row in csvreader:
-    if row[-2] == "is_expert":
+    if row[-1] == "local_global_012":
       headers = row
       for i in range(len(row)):
         result[row[i]] = []
       continue
     for i in range(len(row)):
       result[headers[i]].append(row[i])
+    num_rows -= 1
+    if num_rows == 0:
+      break
   f.close()
   return result
 

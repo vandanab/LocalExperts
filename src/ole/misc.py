@@ -7,6 +7,7 @@ from pymongo import Connection
 from nltk.corpus import stopwords
 import csv
 import nltk
+import operator
 import os
 import pickle
 import re
@@ -61,6 +62,18 @@ def armstrong_tweets(tweets_file):
     csvwriter.writerow(row)
   f.close()
 
+def tebow_tweets():
+  conn = Connection("wheezy.cs.tamu.edu", 27017)
+  db = conn["local_expert_tweets"]
+  it = db["user_location_tweets"].find({"sn": "TimTebow"})
+  loc_profile = {}
+  for i in it:
+    loc_profile[i["l"]] = len(i["t"])
+  sorted_loc_profile = sorted(loc_profile.iteritems(),
+                              key=operator.itemgetter(1),
+                              reverse=True)
+  print sorted_loc_profile[:25]
+
 def create_dict(texts, stopwords=True, locs=None):
   text = " ".join(texts)
   text = re.sub(r"(@\w+\s?)|(@\s+)", "", text)
@@ -92,7 +105,8 @@ def filter_stopwords(tweet, locs=None):
   return ' '.join(final)
 
 def main():
-  armstrong_tweets("armstrong_tweets_map.txt")
+  #armstrong_tweets("armstrong_tweets_map.txt")
+  tebow_tweets()
 
 if __name__ == "__main__":
   main()
